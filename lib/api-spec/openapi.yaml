@@ -2,21 +2,41 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: Biblioteca do Condomínio API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+    description: Health check
+  - name: auth
+    description: Admin authentication
+  - name: books
+    description: Book catalog management
+  - name: users
+    description: Reader/user management
+  - name: loans
+    description: Loan management
+  - name: reservations
+    description: Reservation queue management
+  - name: reader
+    description: Reader portal (authenticated)
+  - name: dashboard
+    description: Public library statistics
+  - name: notes
+    description: Library announcements
+  - name: admins
+    description: Admin user management
+  - name: gemini
+    description: AI book search
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +44,1675 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ────────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      operationId: adminLogin
+      tags: [auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: adminLogout
+      tags: [auth]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: adminMe
+      tags: [auth]
+      summary: Get current admin
+      security:
+        - adminBearerAuth: []
+      responses:
+        "200":
+          description: Current admin data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProfile"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Books ───────────────────────────────────────────────────────────────────
+
+  /books:
+    get:
+      operationId: listBooks
+      tags: [books]
+      summary: List books
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/BookStatus"
+        - name: genre
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+      responses:
+        "200":
+          description: Book list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BooksListResponse"
+    post:
+      operationId: createBook
+      tags: [books]
+      summary: Create book
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookRequest"
+      responses:
+        "201":
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /books/{id}:
+    get:
+      operationId: getBook
+      tags: [books]
+      summary: Get book detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Book detail with loan history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateBook
+      tags: [books]
+      summary: Update book
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookRequest"
+      responses:
+        "200":
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBook
+      tags: [books]
+      summary: Delete book
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "409":
+          description: Cannot delete (has loan history)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Users ───────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List readers
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/UserStatus"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersListResponse"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create reader
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get reader profile
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reader profile with loan history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update reader
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete reader
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── Loans ───────────────────────────────────────────────────────────────────
+
+  /loans:
+    get:
+      operationId: listLoans
+      tags: [loans]
+      summary: List loans
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/LoanStatus"
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: bookId
+          in: query
+          schema:
+            type: integer
+        - name: dueSoon
+          in: query
+          schema:
+            type: boolean
+        - name: dueDateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dueDateTo
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: reportStatus
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, due_today, overdue, returned]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Loan list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoansListResponse"
+    post:
+      operationId: createLoan
+      tags: [loans]
+      summary: Register loan
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLoanRequest"
+      responses:
+        "201":
+          description: Loan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanDetail"
+        "400":
+          description: Eligibility error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /loans/{id}:
+    get:
+      operationId: getLoan
+      tags: [loans]
+      summary: Get loan detail
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Loan detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /loans/{id}/return:
+    patch:
+      operationId: returnLoan
+      tags: [loans]
+      summary: Register loan return
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Loan returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Reservations ─────────────────────────────────────────────────────────────
+
+  /reservations:
+    get:
+      operationId: listReservations
+      tags: [reservations]
+      summary: List reservations
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: bookId
+          in: query
+          schema:
+            type: integer
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ReservationStatus"
+      responses:
+        "200":
+          description: Reservation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationsListResponse"
+    post:
+      operationId: createReservation
+      tags: [reservations]
+      summary: Add to reservation queue
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReservationRequest"
+      responses:
+        "201":
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationDetail"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reservations/{id}:
+    patch:
+      operationId: updateReservation
+      tags: [reservations]
+      summary: Execute reservation action
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservationActionRequest"
+      responses:
+        "200":
+          description: Action executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationDetail"
+        "400":
+          description: Invalid action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteReservation
+      tags: [reservations]
+      summary: Remove from queue
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /reservations/{id}/notify:
+    patch:
+      operationId: notifyReservation
+      tags: [reservations]
+      summary: Record WhatsApp notification sent
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notification recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationDetail"
+
+  # ─── Reader Portal ────────────────────────────────────────────────────────────
+
+  /reader/auth/login:
+    post:
+      operationId: readerLogin
+      tags: [reader]
+      summary: Reader login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReaderLoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reader/auth/me:
+    get:
+      operationId: readerMe
+      tags: [reader]
+      summary: Get current reader
+      security:
+        - readerBearerAuth: []
+      responses:
+        "200":
+          description: Reader profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reader/dashboard:
+    get:
+      operationId: readerDashboard
+      tags: [reader]
+      summary: Reader personal metrics
+      security:
+        - readerBearerAuth: []
+      responses:
+        "200":
+          description: Reader dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReaderDashboard"
+
+  /reader/loans:
+    get:
+      operationId: readerLoans
+      tags: [reader]
+      summary: My loans
+      security:
+        - readerBearerAuth: []
+      responses:
+        "200":
+          description: My loans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReaderLoansResponse"
+
+  /reader/reservations:
+    get:
+      operationId: readerReservations
+      tags: [reader]
+      summary: My reservations
+      security:
+        - readerBearerAuth: []
+      responses:
+        "200":
+          description: My reservations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReaderReservationsResponse"
+    post:
+      operationId: readerCreateReservation
+      tags: [reader]
+      summary: Create reservation
+      security:
+        - readerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReaderCreateReservationRequest"
+      responses:
+        "201":
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationDetail"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reader/reservations/{id}:
+    delete:
+      operationId: readerCancelReservation
+      tags: [reader]
+      summary: Cancel my reservation
+      security:
+        - readerBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reader/profile:
+    patch:
+      operationId: readerUpdateProfile
+      tags: [reader]
+      summary: Update reader profile
+      security:
+        - readerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReaderUpdateProfileRequest"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /reader/lookup:
+    post:
+      operationId: readerLookup
+      tags: [reader]
+      summary: Public email lookup (no auth)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReaderLookupRequest"
+      responses:
+        "200":
+          description: Reader info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReaderLookupResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Dashboard (public) ───────────────────────────────────────────────────────
+
+  /dashboard:
+    get:
+      operationId: getLibraryDashboard
+      tags: [dashboard]
+      summary: Public library statistics
+      responses:
+        "200":
+          description: Library stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryDashboard"
+
+  # ─── Notes ────────────────────────────────────────────────────────────────────
+
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      summary: List active notes
+      parameters:
+        - name: all
+          in: query
+          description: Include inactive notes (admin use)
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notes list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotesListResponse"
+    post:
+      operationId: createNote
+      tags: [notes]
+      summary: Create note
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteRequest"
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+
+  /notes/{id}:
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      summary: Update note
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteRequest"
+      responses:
+        "200":
+          description: Note updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      summary: Delete note
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── Admins ───────────────────────────────────────────────────────────────────
+
+  /admins:
+    get:
+      operationId: listAdmins
+      tags: [admins]
+      summary: List admins
+      security:
+        - adminBearerAuth: []
+      responses:
+        "200":
+          description: Admin list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminsListResponse"
+    post:
+      operationId: createAdmin
+      tags: [admins]
+      summary: Create admin
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminRequest"
+      responses:
+        "201":
+          description: Admin created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProfile"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admins/{id}:
+    delete:
+      operationId: deleteAdmin
+      tags: [admins]
+      summary: Delete admin
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Cannot delete self
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Gemini ───────────────────────────────────────────────────────────────────
+
+  /gemini/book-search:
+    post:
+      operationId: geminiBookSearch
+      tags: [gemini]
+      summary: AI book data lookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeminiBookSearchRequest"
+      responses:
+        "200":
+          description: Book data from AI
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiBookSearchResponse"
+        "500":
+          description: AI error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    adminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    readerBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
+    # ─── Common ────────────────────────────────────────────────────────────────
+
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      required: [page, limit, total, totalPages]
+
+    # ─── Enums ─────────────────────────────────────────────────────────────────
+
+    BookStatus:
+      type: string
+      enum: [draft, available, borrowed, reserved, lost, unavailable]
+
+    UserStatus:
+      type: string
+      enum: [pending, active, inactive, blocked]
+
+    LoanStatus:
+      type: string
+      enum: [active, returned, overdue]
+
+    ReservationStatus:
+      type: string
+      enum: [waiting, notified, fulfilled, cancelled]
+
+    NoteType:
+      type: string
+      enum: [rule, info, announcement]
+
+    # ─── Auth ──────────────────────────────────────────────────────────────────
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AdminLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        admin:
+          $ref: "#/components/schemas/AdminProfile"
+      required: [token, admin]
+
+    ReaderLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
+      required: [token, user]
+
+    # ─── Admin ─────────────────────────────────────────────────────────────────
+
+    AdminProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, email, createdAt, updatedAt]
+
+    AdminsListResponse:
+      type: object
+      properties:
+        admins:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminProfile"
+      required: [admins]
+
+    CreateAdminRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [name, email, password]
+
+    # ─── Users ─────────────────────────────────────────────────────────────────
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        block:
+          type: string
+          nullable: true
+        house:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/UserStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, email, status, createdAt, updatedAt]
+
+    UserDetail:
+      allOf:
+        - $ref: "#/components/schemas/UserProfile"
+        - type: object
+          properties:
+            loans:
+              type: array
+              items:
+                $ref: "#/components/schemas/LoanSummary"
+          required: [loans]
+
+    UsersListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required: [users, meta]
+
+    CreateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        block:
+          type: string
+          nullable: true
+        house:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/UserStatus"
+        password:
+          type: string
+          nullable: true
+      required: [name, email]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        block:
+          type: string
+          nullable: true
+        house:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/UserStatus"
+        password:
+          type: string
+          nullable: true
+
+    # ─── Books ─────────────────────────────────────────────────────────────────
+
+    BookSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        author:
+          type: string
+        genre:
+          type: string
+        isbn:
+          type: string
+          nullable: true
+        publishedYear:
+          type: integer
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/BookStatus"
+      required: [id, title, author, genre, status]
+
+    BookDetail:
+      allOf:
+        - $ref: "#/components/schemas/BookSummary"
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            loans:
+              type: array
+              items:
+                $ref: "#/components/schemas/LoanSummary"
+            reservations:
+              type: array
+              items:
+                $ref: "#/components/schemas/ReservationDetail"
+          required: [createdAt, updatedAt, loans, reservations]
+
+    BooksListResponse:
+      type: object
+      properties:
+        books:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required: [books, meta]
+
+    CreateBookRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        genre:
+          type: string
+        isbn:
+          type: string
+          nullable: true
+        publishedYear:
+          type: integer
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/BookStatus"
+      required: [title, author, genre]
+
+    UpdateBookRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        genre:
+          type: string
+        isbn:
+          type: string
+          nullable: true
+        publishedYear:
+          type: integer
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/BookStatus"
+
+    # ─── Loans ─────────────────────────────────────────────────────────────────
+
+    LoanSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        bookId:
+          type: integer
+        userId:
+          type: integer
+        status:
+          $ref: "#/components/schemas/LoanStatus"
+        loanDate:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        returnDate:
+          type: string
+          format: date-time
+          nullable: true
+        book:
+          $ref: "#/components/schemas/BookSummary"
+        user:
+          $ref: "#/components/schemas/UserProfile"
+      required: [id, bookId, userId, status, loanDate, dueDate]
+
+    LoanDetail:
+      allOf:
+        - $ref: "#/components/schemas/LoanSummary"
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+          required: [createdAt]
+
+    LoansListResponse:
+      type: object
+      properties:
+        loans:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoanDetail"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required: [loans, meta]
+
+    CreateLoanRequest:
+      type: object
+      properties:
+        bookId:
+          type: integer
+        userId:
+          type: integer
+        dueDate:
+          type: string
+          format: date-time
+      required: [bookId, userId]
+
+    # ─── Reservations ──────────────────────────────────────────────────────────
+
+    ReservationDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        bookId:
+          type: integer
+        userId:
+          type: integer
+        position:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ReservationStatus"
+        notifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        book:
+          $ref: "#/components/schemas/BookSummary"
+        user:
+          $ref: "#/components/schemas/UserProfile"
+      required: [id, bookId, userId, position, status, createdAt, updatedAt]
+
+    ReservationsListResponse:
+      type: object
+      properties:
+        reservations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReservationDetail"
+      required: [reservations]
+
+    CreateReservationRequest:
+      type: object
+      properties:
+        bookId:
+          type: integer
+        userId:
+          type: integer
+      required: [bookId, userId]
+
+    ReservationActionRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [notify, cancel, fulfill, advance]
+      required: [action]
+
+    # ─── Reader ────────────────────────────────────────────────────────────────
+
+    ReaderDashboard:
+      type: object
+      properties:
+        activeLoans:
+          type: integer
+        overdueLoans:
+          type: integer
+        pendingReservations:
+          type: integer
+        totalLoans:
+          type: integer
+      required: [activeLoans, overdueLoans, pendingReservations, totalLoans]
+
+    ReaderLoansResponse:
+      type: object
+      properties:
+        active:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoanDetail"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoanDetail"
+      required: [active, history]
+
+    ReaderReservationsResponse:
+      type: object
+      properties:
+        reservations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReservationDetail"
+      required: [reservations]
+
+    ReaderCreateReservationRequest:
+      type: object
+      properties:
+        bookId:
+          type: integer
+      required: [bookId]
+
+    ReaderUpdateProfileRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+        currentPassword:
+          type: string
+          nullable: true
+
+    ReaderLookupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required: [email]
+
+    ReaderLookupResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserProfile"
+        activeLoans:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoanDetail"
+        overdueLoans:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoanDetail"
+        reservations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReservationDetail"
+      required: [user, activeLoans, overdueLoans, reservations]
+
+    # ─── Dashboard ─────────────────────────────────────────────────────────────
+
+    LibraryDashboard:
+      type: object
+      properties:
+        totalBooks:
+          type: integer
+        availableBooks:
+          type: integer
+        borrowedBooks:
+          type: integer
+        activeReaders:
+          type: integer
+        activeLoans:
+          type: integer
+        overdueLoans:
+          type: integer
+        popularBooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookSummary"
+      required:
+        [
+          totalBooks,
+          availableBooks,
+          borrowedBooks,
+          activeReaders,
+          activeLoans,
+          overdueLoans,
+          popularBooks,
+        ]
+
+    # ─── Notes ─────────────────────────────────────────────────────────────────
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          $ref: "#/components/schemas/NoteType"
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, content, type, active, createdAt, updatedAt]
+
+    NotesListResponse:
+      type: object
+      properties:
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Note"
+      required: [notes]
+
+    CreateNoteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          $ref: "#/components/schemas/NoteType"
+        active:
+          type: boolean
+      required: [title, content]
+
+    UpdateNoteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          $ref: "#/components/schemas/NoteType"
+        active:
+          type: boolean
+
+    # ─── Gemini ────────────────────────────────────────────────────────────────
+
+    GeminiBookSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+      required: [query]
+
+    GeminiBookSearchResponse:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+        author:
+          type: string
+          nullable: true
+        genre:
+          type: string
+          nullable: true
+        publishedYear:
+          type: integer
+          nullable: true
+        isbn:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+      required: []
