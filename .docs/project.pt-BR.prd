@@ -1,0 +1,361 @@
+Crie um sistema web completo de biblioteca para condomínio, com área administrativa e área do leitor.
+
+IMPORTANTE:
+Antes de gerar código, leia estas regras com atenção e siga exatamente. Este projeto já teve erros anteriores e você NÃO deve repeti-los.
+
+# Objetivo do sistema
+O sistema será usado para gerenciar livros, leitores, empréstimos, reservas e fila de espera de uma biblioteca de condomínio.
+
+Deve haver dois perfis:
+1. Administrador
+2. Leitor
+
+--------------------------------------------------
+# STACK DESEJADA
+Use uma stack moderna, consistente e simples de manter.
+
+Sugestão preferencial:
+- Frontend: React + TypeScript + Vite + Tailwind
+- Backend: Node.js + TypeScript + Express
+- Banco: PostgreSQL
+- ORM: Drizzle ORM
+- Autenticação: JWT
+- Validação: Zod
+- Build backend: esbuild
+- Organização em monorepo simples ou estrutura organizada por apps/libs, sem exagero
+
+Se já existir uma base no Replit, adapte com o mínimo de ruptura.
+
+--------------------------------------------------
+# FUNCIONALIDADES DO SISTEMA
+
+## 1. Área Administrativa
+
+### 1.1 Gestão de livros
+CRUD de livros com os campos:
+- título
+- autor
+- gênero
+- imagem
+- descrição/sinopse
+- status:
+  - draft
+  - available
+  - reserved
+  - borrowed
+  - missing
+  - lost
+
+### 1.2 Cadastro de leitores
+Campos:
+- nome
+- email
+- whatsapp
+- quadra
+- casa
+- status:
+  - pending
+  - active
+  - inactive
+  - blocked
+
+### 1.3 Empréstimos
+O administrador pode:
+- registrar empréstimo
+- definir data de devolução
+- registrar devolução
+- visualizar empréstimos ativos
+- visualizar atrasos
+
+Cada empréstimo deve ter:
+- livro
+- leitor
+- data de empréstimo
+- data prevista de devolução
+- data real de devolução
+- status:
+  - active
+  - returned
+  - overdue
+
+### 1.4 Relatórios
+O administrativo deve gerar relatório por período para ver:
+- livros a serem devolvidos
+- quem está em atraso
+- data do empréstimo
+- data prevista de devolução
+- dias em atraso
+- status
+
+Filtros:
+- data inicial
+- data final
+- livro
+- leitor
+- status
+
+### 1.5 Reservas e fila de espera
+O administrador deve:
+- listar reservas
+- listar fila de espera
+- cancelar reserva
+- avançar fila
+- marcar livro disponível para retirada
+- registrar retirada
+- visualizar prazo de retirada
+
+### 1.6 Botão de WhatsApp
+Na listagem de reservas e fila de espera, deve existir um botão de WhatsApp com mensagem pré-definida para avisar o leitor que o livro está disponível para retirada.
+
+Mensagem base:
+"Olá, [nome do leitor]! O livro '[título do livro]' está disponível para retirada na biblioteca do condomínio. Por favor, retire dentro do prazo informado. Obrigado!"
+
+Gerar link wa.me com a mensagem preenchida.
+
+--------------------------------------------------
+# 2. Área do Leitor
+
+O leitor deve poder:
+
+### 2.1 Catálogo
+- listar livros
+- filtrar livros
+- buscar por título, autor ou gênero
+- visualizar status do livro
+
+### 2.2 Detalhes do livro
+Ao clicar em um livro, abrir página ou modal com:
+- título
+- autor
+- gênero
+- imagem
+- descrição
+- status
+- disponibilidade
+- posição na fila, se aplicável
+
+Ações:
+- reservar livro
+- entrar na fila de espera
+
+### 2.3 Meus livros
+O leitor deve visualizar:
+- livros reservados
+- livros emprestados
+- data de devolução de cada empréstimo
+- posição na fila de espera, quando houver
+
+--------------------------------------------------
+# REGRAS DE NEGÓCIO
+
+1. Apenas leitores com status ACTIVE podem:
+- reservar
+- entrar na fila
+- pegar empréstimo
+
+2. Não permitir reserva duplicada do mesmo livro pelo mesmo leitor se já houver:
+- reserva ativa
+- fila ativa
+- empréstimo ativo
+
+3. Quando o livro estiver indisponível:
+- permitir entrar na fila de espera
+
+4. Quando um livro for devolvido:
+- se existir reserva/fila, ele NÃO volta direto para disponível
+- deve priorizar o próximo da fila/reserva
+
+5. Reserva deve possuir:
+- data de criação
+- status
+- prazo de retirada
+- data de notificação
+- data de expiração
+
+6. Fila deve seguir ordem FIFO
+
+7. Se uma reserva no meio da fila for cancelada:
+- reordenar as posições imediatamente
+- sem deixar buracos (1,2,3,4...)
+
+8. Se uma reserva cancelada estiver em status "notified":
+- promover automaticamente o próximo da fila
+- preencher notifiedAt e expiresAt
+
+9. Status do livro deve sempre refletir o estado real:
+prioridade:
+- borrowed
+- reserved
+- available
+
+10. Dados seed devem respeitar o estado real do domínio:
+- livro com empréstimo ativo => status borrowed
+- livro com reserva/fila ativa => status reserved
+- só usar available quando realmente estiver livre
+
+--------------------------------------------------
+# REQUISITOS TÉCNICOS IMPORTANTES
+ESSAS REGRAS SÃO OBRIGATÓRIAS
+
+## 1. NÃO repetir erros anteriores
+
+### 1.1 Export duplicado
+Se houver biblioteca api-zod ou estrutura parecida:
+- NUNCA re-exportar ./generated/types junto com ./generated/api
+- exportar apenas schemas
+- evitar erro TS2308 de export duplicado
+
+### 1.2 process.env e Node types
+Se qualquer pacote usar process.env:
+- garantir @types/node como devDependency
+- não deixar erro "Cannot find name 'process'"
+
+### 1.3 JWT_SECRET
+Nunca usar process.env.JWT_SECRET diretamente de forma insegura.
+Use este padrão:
+
+const rawJwtSecret = process.env.JWT_SECRET;
+if (!rawJwtSecret) {
+  throw new Error("JWT_SECRET environment variable is required but was not provided.");
+}
+const JWT_SECRET: string = rawJwtSecret;
+
+### 1.4 Express 5 params
+Se usar Express 5:
+- sempre converter req.params para string antes de parsear
+
+Exemplo:
+const id = parseInt(String(req.params.id));
+
+### 1.5 esbuild externals
+Se usar @google/genai ou qualquer dependência problemática:
+- adicionar explicitamente em externals no build
+- não deixar erro de runtime "Cannot find module"
+
+### 1.6 Secrets obrigatórios
+Criar e documentar variáveis obrigatórias:
+- JWT_SECRET
+- DATABASE_URL
+- GEMINI_API_KEY (se integração Gemini for usada)
+
+### 1.7 Fila de espera
+Após qualquer cancelamento ou mudança:
+- normalizar fila
+- recalcular positions em ordem crescente e contínua
+
+--------------------------------------------------
+# INTEGRAÇÃO COM IA PARA CADASTRO DE LIVRO
+
+No cadastro administrativo de livro:
+- permitir busca por título e autor usando Gemini
+- mostrar resultados
+- permitir que o administrador escolha um resultado
+- preencher automaticamente os campos do formulário
+
+IMPORTANTE:
+- isolar essa integração em um módulo próprio
+- não acoplar a lógica do Gemini ao core de livros
+- prever fallback se a API falhar
+- o sistema deve funcionar mesmo sem Gemini
+
+--------------------------------------------------
+# AUTENTICAÇÃO E PERFIS
+
+Criar autenticação com login.
+Perfis:
+- admin
+- reader
+
+O sistema deve proteger rotas por perfil.
+
+--------------------------------------------------
+# TELAS MÍNIMAS
+
+## Administrativo
+- Login
+- Dashboard
+- Livros
+- Novo livro / editar livro
+- Leitores
+- Empréstimos
+- Reservas
+- Fila de espera
+- Relatórios
+
+## Leitor
+- Login
+- Dashboard
+- Catálogo
+- Detalhes do livro
+- Meus empréstimos
+- Minhas reservas
+- Minha fila
+
+--------------------------------------------------
+# BANCO DE DADOS
+Modele tabelas coerentes, pelo menos:
+
+- users
+- books
+- loans
+- reservations
+- waitlist or reservation_queue
+- admins ou role no users
+- notes (opcional para dashboard administrativo)
+
+Inclua:
+- timestamps
+- índices úteis
+- foreign keys
+- status enums consistentes
+
+--------------------------------------------------
+# ENTREGÁVEIS
+Quero que você gere:
+
+1. Estrutura de pastas organizada
+2. Schema do banco
+3. Migrations
+4. Seed coerente
+5. Backend com rotas organizadas
+6. Frontend com telas mínimas funcionais
+7. README com instruções de execução
+8. Arquivo .env.example
+9. Validações de regras de negócio
+10. Comentários curtos apenas onde necessário
+
+--------------------------------------------------
+# QUALIDADE
+- Código limpo
+- Sem duplicação desnecessária
+- Evitar acoplamento
+- Tipagem forte
+- UI simples, clara e funcional
+- Mobile friendly
+- Não inventar features fora do escopo principal antes de concluir o núcleo do sistema
+
+--------------------------------------------------
+# ORDEM DE EXECUÇÃO
+Implemente nesta ordem:
+1. banco e schema
+2. autenticação
+3. CRUD de livros e usuários
+4. empréstimos
+5. reservas e fila
+6. relatórios
+7. área do leitor
+8. integração Gemini
+9. seed
+10. README final
+
+--------------------------------------------------
+# MUITO IMPORTANTE
+Antes de finalizar:
+- revise se não há inconsistência de status entre livro, empréstimo e reserva
+- revise se a fila é reordenada corretamente após cancelamentos
+- revise se todas as variáveis de ambiente obrigatórias foram tratadas
+- revise se req.params foi convertido corretamente
+- revise se não há export duplicado
+- revise se seed representa o estado real do sistema
+
+Agora gere o projeto completo, com foco em funcionamento real e sem repetir os erros técnicos já conhecidos.
