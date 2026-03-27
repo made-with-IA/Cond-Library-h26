@@ -1,0 +1,1189 @@
+# PRD — Biblioteca do Condomínio
+**Product Requirements Document · Versão 1.0**
+**Data:** Março 2026
+
+---
+
+## Índice
+
+1. [Visão Geral do Produto](#1-visão-geral-do-produto)
+2. [Objetivos e Métricas](#2-objetivos-e-métricas)
+3. [Personas e Stakeholders](#3-personas-e-stakeholders)
+4. [Histórias de Usuário](#4-histórias-de-usuário)
+5. [Casos de Uso](#5-casos-de-uso)
+6. [Arquitetura do Sistema](#6-arquitetura-do-sistema)
+7. [Banco de Dados](#7-banco-de-dados)
+8. [API — Endpoints](#8-api--endpoints)
+9. [Frontend — Páginas e Navegação](#9-frontend--páginas-e-navegação)
+10. [Regras de Negócio](#10-regras-de-negócio)
+11. [Autenticação e Segurança](#11-autenticação-e-segurança)
+12. [Integrações Externas](#12-integrações-externas)
+13. [Especificações Técnicas](#13-especificações-técnicas)
+14. [Fora do Escopo](#14-fora-do-escopo)
+
+---
+
+## 1. Visão Geral do Produto
+
+### 1.1 Problema
+
+Condomínios com biblioteca comunitária gerenciam seus acervos de forma manual — cadernos, planilhas ou aplicativos genéricos que não foram feitos para este contexto. Isso causa:
+
+- Perda de controle sobre livros emprestados e devoluções em atraso
+- Dificuldade dos moradores em saber quais livros estão disponíveis
+- Ausência de fila de reservas organizada
+- Falta de comunicação eficiente quando um livro aguardado fica disponível
+- Nenhum histórico de empréstimos para tomada de decisões sobre o acervo
+
+### 1.2 Solução
+
+**Biblioteca do Condomínio** é um sistema web completo que digitaliza e automatiza a gestão da biblioteca comunitária. Oferece:
+
+- **Painel administrativo completo** para síndicos e bibliotecários
+- **Portal do leitor** para moradores consultarem e reservarem livros pelo smartphone
+- **Controle de fila de espera** com notificação via WhatsApp
+- **Relatórios** para acompanhar o desempenho da biblioteca
+- **Busca inteligente** via IA para preencher dados dos livros automaticamente
+
+### 1.3 Público-Alvo
+
+- Condomínios residenciais com biblioteca comunitária
+- Bibliotecas de pequeno porte em associações, clubes e escolas
+
+---
+
+## 2. Objetivos e Métricas
+
+### 2.1 Objetivos do Produto
+
+| Objetivo | Indicador de Sucesso |
+|---|---|
+| Eliminar perda de controle sobre empréstimos | 100% dos empréstimos registrados no sistema |
+| Reduzir devoluções em atraso | Taxa de atraso < 15% em 3 meses de uso |
+| Aumentar a utilização do acervo | Taxa de disponibilidade de livros > 70% |
+| Facilitar acesso dos moradores | ≥ 50% dos leitores usando o portal digital |
+| Comunicação eficiente de fila | Tempo médio de notificação < 24h após disponibilidade |
+
+### 2.2 Fora do Escopo de Métricas
+
+- Receita financeira (sistema gratuito para o condomínio)
+- Comparação com outros condomínios
+
+---
+
+## 3. Personas e Stakeholders
+
+### 3.1 Administrador da Biblioteca
+
+**Quem é:** Síndico, sub-síndico, ou morador voluntário responsável pela biblioteca.
+
+**Características:**
+- Acesso ao painel administrativo com login/senha
+- Gerencia todo o acervo, leitores e empréstimos
+- Precisa de relatórios para prestar contas ao condomínio
+- Pode ou não ter conhecimento técnico
+
+**Dores:**
+- Tempo gasto controlando empréstimos manualmente
+- Dificuldade em localizar livros que nunca foram devolvidos
+- Falta de visibilidade sobre quais livros são mais procurados
+
+---
+
+### 3.2 Leitor Cadastrado (Morador)
+
+**Quem é:** Morador do condomínio com cadastro ativo na biblioteca.
+
+**Características:**
+- Acessa o portal pelo smartphone ou computador
+- Pode não ter muita familiaridade com tecnologia
+- Quer saber rapidamente se um livro está disponível
+- Precisa de lembrete quando o livro que reservou fica disponível
+
+**Dores:**
+- Ter que ir pessoalmente à biblioteca para saber se um livro está disponível
+- Não saber quando vai chegar sua vez na fila de espera
+- Esquecer a data de devolução e acumular atraso
+
+---
+
+### 3.3 Visitante (Morador sem cadastro)
+
+**Quem é:** Qualquer pessoa que acessa a página pública sem estar cadastrada.
+
+**Características:**
+- Pode ver o acervo disponível e os comunicados
+- Não pode realizar empréstimos ou reservas sem cadastro
+- Incentivado a se cadastrar pelo administrador
+
+---
+
+## 4. Histórias de Usuário
+
+### 4.1 Administrador
+
+```
+US-ADM-01
+Como administrador,
+quero cadastrar livros no sistema com título, autor, gênero, ISBN e capa,
+para manter o acervo digitalizado e facilmente pesquisável.
+
+Critérios de aceite:
+- Campo de busca por ISBN/título usa IA para preencher dados automaticamente
+- Campos obrigatórios: título, autor, gênero
+- Upload opcional de capa por URL
+- Status inicial configurável: disponível ou rascunho
+```
+
+```
+US-ADM-02
+Como administrador,
+quero registrar empréstimos informando leitor e livro,
+para controlar quem está com cada livro e a data de devolução prevista.
+
+Critérios de aceite:
+- Somente leitores com status "ativo" podem ser selecionados
+- Somente livros com status "disponível" ou "reservado" (neste caso, o próximo da fila) podem ser emprestados
+- Data de devolução padrão: 15 dias corridos da data do empréstimo
+- Livro muda para status "emprestado" automaticamente
+```
+
+```
+US-ADM-03
+Como administrador,
+quero registrar a devolução de um livro,
+para atualizar o status do acervo e notificar a fila de reservas.
+
+Critérios de aceite:
+- Empréstimo marcado como "devolvido" com data de retorno registrada
+- Se houver fila de espera: livro vai para "reservado", primeiro da fila marcado como "notificado"
+- Se não houver fila: livro volta para "disponível"
+```
+
+```
+US-ADM-04
+Como administrador,
+quero ver filtros rápidos de "Em Atraso" e "Vencendo em 3 dias" na tela de empréstimos,
+para agir proativamente sobre devoluções pendentes.
+
+Critérios de aceite:
+- Filtro "Em Atraso": lista empréstimos com dueDate < hoje e status != returned
+- Filtro "Vencendo em 3 dias": lista empréstimos ativos com dueDate entre hoje e hoje+3 dias
+- Botões com estado ativo/inativo visual (toggle)
+```
+
+```
+US-ADM-05
+Como administrador,
+quero enviar notificação de disponibilidade pelo WhatsApp,
+para avisar o leitor que o livro que ele reservou está pronto para retirada.
+
+Critérios de aceite:
+- Botão de WhatsApp visível nas reservas notificadas e na fila de espera
+- Mensagem pré-formatada com nome do leitor e título do livro
+- Abre WhatsApp Web/app com o número do leitor
+- Registra timestamp da última notificação enviada
+```
+
+```
+US-ADM-06
+Como administrador,
+quero gerenciar a fila de espera de cada livro com abas organizadas,
+para saber exatamente quem está aguardando e em que posição.
+
+Critérios de aceite:
+- Aba "Ativas": reservas notificadas com prazo ainda válido
+- Aba "Expiradas": reservas notificadas cujo prazo de 3 dias venceu
+- Aba "Fila de Espera": reservas com status "aguardando"
+- Aba "Histórico": reservas cumpridas e canceladas
+- Ações disponíveis: Notificar, Avançar (skip), Cancelar, Cumprir
+```
+
+```
+US-ADM-07
+Como administrador,
+quero exportar um relatório de devoluções em CSV,
+para compartilhar com a gestão do condomínio.
+
+Critérios de aceite:
+- Filtros: período (data de vencimento de/até), status derivado, nome do leitor, título do livro
+- Status derivados: A Vencer, Vence Hoje, Atrasado, Devolvido
+- Exportação inclui: livro, leitor, telefone, data empréstimo, data prevista, dias em atraso, status
+- Geração do CSV no próprio browser (sem processamento no servidor)
+```
+
+```
+US-ADM-08
+Como administrador,
+quero publicar comunicados, regras e informativos,
+para que os moradores vejam na página pública da biblioteca.
+
+Critérios de aceite:
+- Tipos: Regra, Informativo, Comunicado (com ícone diferente para cada)
+- Campo ativo/inativo para controlar visibilidade
+- Exibição na homepage pública em ordem cronológica
+```
+
+```
+US-ADM-09
+Como administrador,
+quero usar IA para buscar informações de um livro pelo título ou ISBN,
+para cadastrar livros rapidamente sem digitar todos os dados manualmente.
+
+Critérios de aceite:
+- Campo de busca na tela de novo livro
+- Retorna: título, autor, gênero, ano de publicação, descrição, ISBN, URL de capa
+- Dados podem ser editados antes de salvar
+```
+
+```
+US-ADM-10
+Como administrador,
+quero cadastrar e gerenciar outros administradores,
+para delegar a gestão da biblioteca a outras pessoas.
+
+Critérios de aceite:
+- Criação de admin com nome, e-mail e senha
+- Listagem de todos os admins
+- Exclusão de admin (exceto o próprio usuário logado)
+```
+
+---
+
+### 4.2 Leitor Cadastrado
+
+```
+US-LEI-01
+Como leitor cadastrado,
+quero fazer login no portal com meu e-mail e senha,
+para ter acesso às minhas informações pessoais de forma segura.
+
+Critérios de aceite:
+- Login com e-mail e senha
+- JWT armazenado em localStorage
+- Sessão mantida entre aberturas do browser
+- Redirecionamento automático para o dashboard após login
+```
+
+```
+US-LEI-02
+Como leitor cadastrado,
+quero ver meu painel pessoal com um resumo das minhas atividades,
+para ter uma visão rápida da minha situação na biblioteca.
+
+Critérios de aceite:
+- Cards com: empréstimos ativos, em atraso, reservas pendentes, total de empréstimos
+- Acesso rápido às seções de catálogo, empréstimos e reservas
+```
+
+```
+US-LEI-03
+Como leitor cadastrado,
+quero navegar pelo catálogo de livros com filtros,
+para encontrar livros disponíveis para reservar.
+
+Critérios de aceite:
+- Filtro por título/autor (busca de texto)
+- Filtro por gênero
+- Status de disponibilidade visível em cada livro (disponível, emprestado, reservado)
+- Se já tenho reserva para o livro, mostrar minha posição na fila
+- Botão de reservar visível somente para livros não disponíveis; botão de solicitar empréstimo para disponíveis
+```
+
+```
+US-LEI-04
+Como leitor cadastrado,
+quero ver meus empréstimos ativos e histórico,
+para saber o que estou com mim e quando devo devolver.
+
+Critérios de aceite:
+- Lista de empréstimos ativos com data de vencimento e alerta se estiver em atraso
+- Histórico completo de empréstimos anteriores
+- Status visual diferenciado por cor (ativo, atrasado, devolvido)
+```
+
+```
+US-LEI-05
+Como leitor cadastrado,
+quero ver e cancelar minhas reservas,
+para gerenciar minha fila de espera.
+
+Critérios de aceite:
+- Lista das reservas com status atual e posição na fila
+- Botão de cancelar reserva disponível para reservas em espera
+- Reserva cumprida não pode ser cancelada
+```
+
+```
+US-LEI-06
+Como leitor cadastrado,
+quero atualizar meu telefone e senha no perfil,
+para manter meus dados de contato atualizados.
+
+Critérios de aceite:
+- Campos editáveis: telefone, senha (com confirmação)
+- E-mail e nome exibidos como somente leitura (editáveis apenas pelo admin)
+- Feedback visual de sucesso/erro após salvar
+```
+
+---
+
+### 4.3 Visitante / Morador sem login
+
+```
+US-VIS-01
+Como visitante,
+quero ver a página pública da biblioteca com estatísticas e livros populares,
+para entender o que o acervo oferece antes de me cadastrar.
+
+Critérios de aceite:
+- Exibe: total de livros, disponíveis, leitores ativos, empréstimos ativos
+- Seção de livros populares (mais emprestados)
+- Comunicados ativos publicados pelo administrador
+```
+
+```
+US-VIS-02
+Como visitante,
+quero consultar meus empréstimos digitando meu e-mail cadastrado,
+para ver rapidamente minha situação sem precisar fazer login.
+
+Critérios de aceite:
+- Campo de e-mail sem necessidade de senha
+- Retorna: perfil do leitor, empréstimos ativos, empréstimos em atraso, reservas pendentes com posição
+- E-mail não encontrado exibe mensagem clara
+- Empréstimos em atraso destacados em vermelho
+- Empréstimos vencendo em menos de 3 dias com aviso amarelo
+```
+
+---
+
+## 5. Casos de Uso
+
+### UC-01: Registrar Novo Empréstimo
+
+**Ator:** Administrador
+
+**Pré-condições:**
+- Admin autenticado
+- Livro com status `available` ou `reserved`
+- Leitor com status `active`
+
+**Fluxo Principal:**
+1. Admin acessa "Empréstimos" → "Registrar Empréstimo"
+2. Seleciona o leitor na lista ou busca por nome
+3. Seleciona o livro (somente disponíveis ou reservados)
+4. Confirma a data de devolução (padrão: 15 dias)
+5. Sistema registra o empréstimo e atualiza o status do livro para `borrowed`
+6. Se o livro estava `reserved` para este leitor, a reserva é marcada como `fulfilled`
+
+**Fluxo Alternativo — Livro Reservado Para Outro:**
+- 5a. Sistema bloqueia e exibe erro: "Este livro está reservado para [Nome]. Somente [Nome] pode retirar este livro."
+
+**Pós-condições:**
+- Empréstimo criado com status `active`
+- Livro com status `borrowed`
+- Reserva do leitor (se existir) com status `fulfilled`
+
+---
+
+### UC-02: Registrar Devolução
+
+**Ator:** Administrador
+
+**Pré-condições:**
+- Admin autenticado
+- Empréstimo com status `active` ou `overdue`
+
+**Fluxo Principal:**
+1. Admin localiza o empréstimo na lista
+2. Clica em "Devolver"
+3. Sistema registra `returnDate` = agora, status = `returned`
+4. Sistema verifica fila de reservas para o livro
+
+**Fluxo A — Com fila de espera:**
+- Sistema muda livro para `reserved`
+- Primeira reserva com status `waiting` é promovida para `notified`
+- `notifiedAt` = agora, `expiresAt` = agora + 3 dias
+
+**Fluxo B — Sem fila de espera:**
+- Sistema muda livro para `available`
+
+**Pós-condições:**
+- Empréstimo com status `returned` e `returnDate` preenchido
+- Livro com status `available` ou `reserved`
+- Próximo da fila notificado (se existir)
+
+---
+
+### UC-03: Gerenciar Fila de Reservas
+
+**Ator:** Administrador
+
+**Pré-condições:**
+- Admin autenticado
+- Reservas existentes para o livro
+
+**Ações disponíveis:**
+
+| Ação | Gatilho | Efeito |
+|---|---|---|
+| **Notificar** | Apenas para primeiro da fila com status `waiting` | Status → `notified`, define `notifiedAt` e `expiresAt` (+3 dias) |
+| **Avançar (skip)** | Reserva `notified` não retirada | Cancela atual, normaliza posições, promove próximo `waiting` |
+| **Cancelar** | Qualquer reserva `waiting` ou `notified` | Status → `cancelled`, normaliza posições; se era único na fila e livro estava `reserved`, livro volta a `available` |
+| **Cumprir** | Reserva `notified` quando empréstimo é criado | Status → `fulfilled`, normaliza posições, promove próximo ou libera livro |
+
+---
+
+### UC-04: Consulta Pública por E-mail
+
+**Ator:** Visitante (morador)
+
+**Pré-condições:** Nenhuma (público, sem autenticação)
+
+**Fluxo Principal:**
+1. Visitante acessa `/leitor`
+2. Digita o e-mail cadastrado
+3. Sistema busca o leitor e auto-marca empréstimos vencidos como `overdue`
+4. Exibe: dados do perfil, empréstimos em atraso, empréstimos ativos, reservas pendentes
+
+**Fluxo Alternativo — E-mail não encontrado:**
+- Sistema exibe: "Nenhum leitor encontrado com este e-mail. Verifique o e-mail cadastrado ou fale com a administração."
+
+---
+
+### UC-05: Exportar Relatório de Devoluções
+
+**Ator:** Administrador
+
+**Pré-condições:** Admin autenticado
+
+**Fluxo Principal:**
+1. Admin acessa "Relatórios" → "Devoluções"
+2. Aplica filtros: período (dueDateFrom/dueDateTo), status, nome do leitor, título
+3. Visualiza a tabela filtrada
+4. Clica em "Exportar CSV"
+5. Browser gera e faz download do arquivo CSV
+
+**Dados do CSV:**
+- Livro, Autor, Leitor, Telefone, Data do Empréstimo, Data de Devolução Prevista, Data de Devolução Real, Dias em Atraso, Status
+
+---
+
+### UC-06: Notificar Leitor via WhatsApp
+
+**Ator:** Administrador
+
+**Pré-condições:**
+- Admin autenticado
+- Leitor com número de telefone cadastrado (mínimo 10 dígitos)
+- Reserva com status `notified` ou `waiting`
+
+**Fluxo Principal:**
+1. Admin localiza a reserva na fila de espera ou na aba "Ativas"
+2. Clica no botão WhatsApp
+3. Sistema registra `notifiedAt` = agora via PATCH `/api/reservations/:id/notify`
+4. Abre WhatsApp Web com número preenchido e mensagem pré-formatada
+5. Admin envia a mensagem manualmente pelo WhatsApp
+
+**Mensagem padrão:**
+```
+Olá, [Nome]! O livro "[Título]" está disponível para retirada na biblioteca do condomínio. 
+Você tem até [data] para retirar. Caso não retire neste prazo, sua reserva será cancelada.
+```
+
+---
+
+## 6. Arquitetura do Sistema
+
+### 6.1 Visão Geral
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    CLIENTE (Browser)                    │
+│                                                         │
+│  ┌──────────────┐   ┌──────────────┐   ┌────────────┐  │
+│  │  Área Pública │   │Portal Leitor │   │Painel Admin│  │
+│  │   / e /leitor │   │  /leitor/*  │   │  /admin/*  │  │
+│  └──────┬───────┘   └──────┬───────┘   └─────┬──────┘  │
+│         │                  │                  │         │
+│         └──────────────────┼──────────────────┘         │
+│                     React + Vite                        │
+│               (React Query + Wouter + shadcn/ui)        │
+└─────────────────────────────┬───────────────────────────┘
+                              │ HTTP/REST
+                              │ (API Client gerado via Orval)
+┌─────────────────────────────▼───────────────────────────┐
+│                   API SERVER (Express 5)                │
+│                    localhost:8080                       │
+│                                                         │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
+│  │ Auth Routes │  │ Admin Routes │  │ Reader Routes │  │
+│  │  /api/auth  │  │ /api/books   │  │ /api/reader   │  │
+│  │             │  │ /api/users   │  │               │  │
+│  │  admin JWT  │  │ /api/loans   │  │  reader JWT   │  │
+│  │  reader JWT │  │ /api/reserv. │  │               │  │
+│  └──────┬──────┘  └──────┬───────┘  └───────┬───────┘  │
+│         └───────────────┬┘──────────────────┘          │
+│                    Drizzle ORM                          │
+│                 (drizzle-zod, zod/v4)                  │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────┐
+│                    PostgreSQL                           │
+│                                                         │
+│  admins · users · books · loans · reservations          │
+│  library_notes                                          │
+└─────────────────────────────────────────────────────────┘
+
+Serviços externos:
+  Gemini AI ──→ /api/gemini/book-search
+  WhatsApp  ──→ link wa.me/... (frontend only, sem integração server-side)
+```
+
+### 6.2 Padrão de Projeto
+
+**Backend (Express 5):**
+- Arquitetura de rotas modulares por domínio (books, users, loans, reservations, reader, auth)
+- Middleware de autenticação separado para admin (`authMiddleware`) e leitor (`readerAuthMiddleware`)
+- Validação de entrada com Zod v4 gerado via `drizzle-zod`
+- Respostas sempre tipadas via TypeScript
+
+**Frontend (React + Vite):**
+- Geração automática de hooks React Query a partir do OpenAPI spec via Orval
+- `ReaderAuthContext` para estado global de autenticação do leitor
+- Layouts separados: `PublicLayout`, `AdminLayout`, `ReaderLayout`
+- Design system unificado: Tailwind CSS + shadcn/ui + Lucide Icons
+
+**Monorepo (pnpm workspaces):**
+- `lib/api-spec`: fonte de verdade (OpenAPI YAML)
+- `lib/api-client-react`: hooks gerados (nunca editar manualmente)
+- `lib/api-zod`: schemas Zod gerados (nunca editar manualmente)
+- `lib/db`: schema Drizzle compartilhado entre api-server e scripts
+
+### 6.3 Fluxo de Dados da API
+
+```
+OpenAPI YAML (lib/api-spec/openapi.yaml)
+        │
+        │ pnpm --filter @workspace/api-spec run codegen
+        ▼
+┌─────────────────────────────────────┐
+│  lib/api-client-react (gerado)      │  → hooks React Query no frontend
+│  lib/api-zod (gerado)               │  → schemas Zod no backend
+└─────────────────────────────────────┘
+```
+
+---
+
+## 7. Banco de Dados
+
+### 7.1 Diagrama Relacional
+
+```
+admins
+  id · name · email · passwordHash · createdAt · updatedAt
+
+users
+  id · name · email · phone · block · house · status · passwordHash · createdAt · updatedAt
+
+books
+  id · title · author · genre · isbn · publishedYear · imageUrl · description · status · createdAt · updatedAt
+
+loans
+  id · bookId (FK→books) · userId (FK→users) · status · loanDate · dueDate · returnDate · createdAt
+
+library_notes
+  id · title · content · type · active · createdAt · updatedAt
+
+reservations
+  id · bookId (FK→books) · userId (FK→users) · position · status · notifiedAt · expiresAt · createdAt · updatedAt
+```
+
+### 7.2 Tabelas Detalhadas
+
+#### `admins`
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| id | serial | PK | Identificador único |
+| name | text | NOT NULL | Nome completo |
+| email | text | NOT NULL, UNIQUE | E-mail de login |
+| passwordHash | text | NOT NULL | Hash bcrypt da senha |
+| createdAt | timestamp | NOT NULL, DEFAULT now() | Data de criação |
+| updatedAt | timestamp | NOT NULL, DEFAULT now() | Última atualização |
+
+---
+
+#### `users`
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| id | serial | PK | Identificador único |
+| name | text | NOT NULL | Nome completo do morador |
+| email | text | NOT NULL, UNIQUE | E-mail (usado para login e consulta pública) |
+| phone | text | NULL | Telefone (usado para WhatsApp) |
+| block | text | NULL | Bloco/torre do apartamento |
+| house | text | NULL | Número do apartamento/casa |
+| status | user_status | NOT NULL, DEFAULT 'pending' | Status do leitor |
+| passwordHash | text | NULL | Hash bcrypt (NULL = sem acesso ao portal) |
+| createdAt | timestamp | NOT NULL, DEFAULT now() | Data de criação |
+| updatedAt | timestamp | NOT NULL, DEFAULT now() | Última atualização |
+
+**Enum `user_status`:** `pending` · `active` · `inactive` · `blocked`
+
+---
+
+#### `books`
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| id | serial | PK | Identificador único |
+| title | text | NOT NULL | Título do livro |
+| author | text | NOT NULL | Nome do(s) autor(es) |
+| genre | text | NOT NULL | Gênero literário |
+| isbn | text | NULL | ISBN-10 ou ISBN-13 |
+| publishedYear | integer | NULL | Ano de publicação |
+| imageUrl | text | NULL | URL da capa |
+| description | text | NULL | Sinopse |
+| status | book_status | NOT NULL, DEFAULT 'available' | Status de disponibilidade |
+| createdAt | timestamp | NOT NULL, DEFAULT now() | Data de criação |
+| updatedAt | timestamp | NOT NULL, DEFAULT now() | Última atualização |
+
+**Enum `book_status`:** `draft` · `available` · `borrowed` · `reserved` · `lost` · `unavailable`
+
+---
+
+#### `loans`
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| id | serial | PK | Identificador único |
+| bookId | integer | NOT NULL, FK→books | Livro emprestado |
+| userId | integer | NOT NULL, FK→users | Leitor responsável |
+| status | loan_status | NOT NULL, DEFAULT 'active' | Status do empréstimo |
+| loanDate | timestamp | NOT NULL, DEFAULT now() | Data de retirada |
+| dueDate | timestamp | NOT NULL | Data prevista de devolução |
+| returnDate | timestamp | NULL | Data real de devolução (NULL = ainda com o leitor) |
+| createdAt | timestamp | NOT NULL, DEFAULT now() | Data de criação do registro |
+
+**Enum `loan_status`:** `active` · `returned` · `overdue`
+
+> **Nota:** Não há `ON DELETE CASCADE`. Livros com histórico de empréstimos não podem ser deletados diretamente.
+
+---
+
+#### `reservations`
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| id | serial | PK | Identificador único |
+| bookId | integer | NOT NULL, FK→books | Livro reservado |
+| userId | integer | NOT NULL, FK→users | Leitor na fila |
+| position | integer | NOT NULL | Posição na fila (1 = próximo) |
+| status | reservation_status | NOT NULL, DEFAULT 'waiting' | Status da reserva |
+| notifiedAt | timestamp | NULL | Quando foi notificado da disponibilidade |
+| expiresAt | timestamp | NULL | Prazo para retirada (notifiedAt + 3 dias) |
+| createdAt | timestamp | NOT NULL, DEFAULT now() | Data de entrada na fila |
+| updatedAt | timestamp | NOT NULL, DEFAULT now() | Última atualização |
+
+**Enum `reservation_status`:** `waiting` · `notified` · `fulfilled` · `cancelled`
+
+---
+
+#### `library_notes`
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| id | serial | PK | Identificador único |
+| title | text | NOT NULL | Título do comunicado |
+| content | text | NOT NULL | Conteúdo do comunicado |
+| type | note_type | NOT NULL, DEFAULT 'info' | Tipo do comunicado |
+| active | boolean | NOT NULL, DEFAULT true | Visível na página pública |
+| createdAt | timestamp | NOT NULL, DEFAULT now() | Data de criação |
+| updatedAt | timestamp | NOT NULL, DEFAULT now() | Última atualização |
+
+**Enum `note_type`:** `rule` · `info` · `announcement`
+
+---
+
+### 7.3 Índices e Consultas Frequentes
+
+| Tabela | Consulta Comum | Coluna Indexada (implícita) |
+|---|---|---|
+| users | Busca por e-mail (login, consulta pública) | email (UNIQUE) |
+| books | Filtro por status + gênero + busca textual | status |
+| loans | Filtro por userId, bookId, status, dueDate | userId, bookId, status, dueDate |
+| reservations | Fila por bookId ordenada por position | bookId, position |
+| reservations | Reservas ativas de um userId | userId, status |
+
+---
+
+## 8. API — Endpoints
+
+### 8.1 Autenticação Admin
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| POST | `/api/auth/login` | — | Login com e-mail e senha |
+| POST | `/api/auth/logout` | — | Logout |
+| GET | `/api/auth/me` | Admin JWT | Retorna dados do admin logado |
+
+**POST /api/auth/login — Request:**
+```json
+{ "email": "admin@biblioteca.com", "password": "admin123" }
+```
+
+**POST /api/auth/login — Response 200:**
+```json
+{ "token": "eyJ...", "admin": { "id": 1, "name": "Admin", "email": "..." } }
+```
+
+---
+
+### 8.2 Livros
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/books` | — | Listar livros (search, status, genre, page, limit) |
+| POST | `/api/books` | Admin | Criar livro |
+| GET | `/api/books/:id` | — | Detalhes do livro + histórico de empréstimos |
+| PATCH | `/api/books/:id` | Admin | Atualizar livro |
+| DELETE | `/api/books/:id` | Admin | Remover livro (falha se houver empréstimos) |
+
+**Query params GET /api/books:**
+- `search` (string): busca em título e autor
+- `status` (book_status): filtro por status
+- `genre` (string): filtro por gênero
+- `page` (number, default 1)
+- `limit` (number, default 12)
+
+---
+
+### 8.3 Leitores/Usuários
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/users` | Admin | Listar usuários (search, status, page, limit) |
+| POST | `/api/users` | Admin | Cadastrar leitor |
+| GET | `/api/users/:id` | Admin | Perfil + histórico de empréstimos |
+| PATCH | `/api/users/:id` | Admin | Atualizar leitor |
+| DELETE | `/api/users/:id` | Admin | Remover leitor |
+
+---
+
+### 8.4 Empréstimos
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/loans` | Admin | Listar empréstimos com filtros avançados |
+| POST | `/api/loans` | Admin | Registrar empréstimo |
+| GET | `/api/loans/:id` | Admin | Detalhes do empréstimo |
+| PATCH | `/api/loans/:id/return` | Admin | Registrar devolução |
+
+**Query params GET /api/loans:**
+- `status` (loan_status): active · returned · overdue
+- `userId` (number): empréstimos de um leitor específico
+- `bookId` (number): empréstimos de um livro específico
+- `dueSoon` (boolean): ativos vencendo em até 3 dias
+- `dueDateFrom` (date): vencimento a partir de
+- `dueDateTo` (date): vencimento até
+- `reportStatus` (enum): upcoming · due_today · overdue · returned
+- `page`, `limit`
+
+**POST /api/loans — Request:**
+```json
+{ "bookId": 5, "userId": 12, "dueDate": "2026-04-10T00:00:00.000Z" }
+```
+
+---
+
+### 8.5 Reservas e Fila
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/reservations` | Admin | Listar reservas (bookId, userId, status) |
+| POST | `/api/reservations` | Admin | Adicionar leitor à fila |
+| PATCH | `/api/reservations/:id` | Admin | Executar ação na reserva |
+| DELETE | `/api/reservations/:id` | Admin | Remover da fila |
+| PATCH | `/api/reservations/:id/notify` | Admin | Registrar notificação WhatsApp |
+
+**PATCH /api/reservations/:id — Body:**
+```json
+{ "action": "notify" }
+// ações: notify · cancel · fulfill · advance
+```
+
+---
+
+### 8.6 Portal do Leitor (autenticado)
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| POST | `/api/reader/auth/login` | — | Login do leitor |
+| GET | `/api/reader/auth/me` | Reader JWT | Dados do leitor logado |
+| GET | `/api/reader/dashboard` | Reader JWT | Métricas pessoais |
+| GET | `/api/reader/loans` | Reader JWT | Meus empréstimos |
+| GET | `/api/reader/reservations` | Reader JWT | Minhas reservas |
+| POST | `/api/reader/reservations` | Reader JWT | Fazer reserva |
+
+---
+
+### 8.7 Consulta Pública
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| POST | `/api/reader/lookup` | — | Consulta por e-mail (sem login) |
+
+**POST /api/reader/lookup — Request:**
+```json
+{ "email": "morador@email.com" }
+```
+
+**POST /api/reader/lookup — Response 200:**
+```json
+{
+  "user": { "id": 1, "name": "João Silva", "email": "...", "block": "A", "house": "101", "status": "active" },
+  "activeLoans": [ { "id": 1, "book": {...}, "dueDate": "...", "status": "active" } ],
+  "overdueLoans": [ ... ],
+  "reservations": [ { "id": 2, "book": {...}, "position": 1, "status": "notified" } ]
+}
+```
+
+---
+
+### 8.8 Outros
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/healthz` | — | Health check |
+| GET | `/api/dashboard` | — | Métricas públicas do acervo |
+| GET | `/api/notes` | — | Comunicados ativos |
+| POST | `/api/notes` | Admin | Criar comunicado |
+| PATCH | `/api/notes/:id` | Admin | Atualizar comunicado |
+| DELETE | `/api/notes/:id` | Admin | Remover comunicado |
+| POST | `/api/gemini/book-search` | — | Buscar dados do livro com Gemini AI |
+| GET | `/api/admins` | Admin | Listar admins |
+| POST | `/api/admins` | Admin | Criar admin |
+| DELETE | `/api/admins/:id` | Admin | Remover admin |
+
+---
+
+## 9. Frontend — Páginas e Navegação
+
+### 9.1 Área Pública
+
+| Rota | Componente | Descrição |
+|---|---|---|
+| `/` | `Home` | Vitrine pública com estatísticas, livros populares e comunicados |
+| `/leitor` | `ReaderLookup` | Consulta de empréstimos por e-mail sem login |
+
+**Layout:** `PublicLayout` — header com logo, link "Meus Empréstimos" e "Acesso Admin"
+
+---
+
+### 9.2 Portal do Leitor (autenticado)
+
+| Rota | Componente | Descrição |
+|---|---|---|
+| `/leitor/login` | `ReaderLogin` | Formulário de login do leitor |
+| `/leitor/dashboard` | `ReaderDashboard` | Painel pessoal com métricas |
+| `/leitor/catalogo` | `ReaderCatalogo` | Catálogo com busca, filtros e botão de reserva |
+| `/leitor/emprestimos` | `ReaderEmprestimos` | Meus empréstimos ativos e histórico |
+| `/leitor/reservas` | `ReaderReservas` | Minhas reservas e posição na fila |
+| `/leitor/fila` | `ReaderFila` | Detalhe da fila de espera |
+| `/leitor/perfil` | `ReaderPerfil` | Editar telefone e senha |
+
+**Layout:** `ReaderLayout` — navegação lateral com menu completo e header personalizado
+
+**Estado Global:** `ReaderAuthContext` — gerencia JWT do leitor, dados do perfil, login/logout
+
+---
+
+### 9.3 Painel Administrativo
+
+| Rota | Componente | Descrição |
+|---|---|---|
+| `/admin/login` | `AdminLogin` | Login do administrador |
+| `/admin/dashboard` | `AdminDashboard` | Dashboard com métricas completas |
+| `/admin/books` | `AdminBooks` | Lista de livros com busca e filtros |
+| `/admin/books/new` | `AdminBookNew` | Cadastro de livro (com busca Gemini AI) |
+| `/admin/books/:id` | `AdminBookDetail` | Detalhe do livro + histórico |
+| `/admin/users` | `AdminUsers` | Lista de leitores |
+| `/admin/users/:id` | `AdminUserDetail` | Perfil do leitor + histórico |
+| `/admin/loans` | `AdminLoans` | Lista de empréstimos + filtros rápidos |
+| `/admin/loans/new` | `AdminLoanNew` | Registrar empréstimo |
+| `/admin/reservations` | `AdminReservations` | Fila de espera com 4 abas |
+| `/admin/reports` | `AdminReports` | Hub de relatórios |
+| `/admin/reports/returns` | `AdminReturnsReport` | Relatório de devoluções + CSV |
+| `/admin/notes` | `AdminNotes` | Comunicados da biblioteca |
+| `/admin/admins` | `AdminAdmins` | Gestão de administradores |
+
+**Layout:** `AdminLayout` — sidebar fixa com navegação completa e header com usuário logado
+
+---
+
+## 10. Regras de Negócio
+
+### 10.1 Empréstimos
+
+**RN-EMP-01: Elegibilidade do livro**
+- Livro deve estar com status `available` ou `reserved`
+- Se `reserved`: somente o leitor que está como `notified` na fila pode retirar
+- Status `draft`, `borrowed`, `lost`, `unavailable` bloqueiam empréstimo
+
+**RN-EMP-02: Elegibilidade do leitor**
+- Leitor deve ter status `active`
+- Status `pending`, `inactive`, `blocked` bloqueiam empréstimo
+
+**RN-EMP-03: Efeito do empréstimo no livro**
+- Livro vai para `borrowed` imediatamente ao registrar empréstimo
+
+**RN-EMP-04: Efeito do empréstimo na reserva**
+- Se o leitor tinha reserva `notified` para o livro → reserva vai para `fulfilled`
+- Posições da fila são normalizadas após `fulfilled`
+
+**RN-EMP-05: Marcação de atraso**
+- `GET /api/loans` auto-marca empréstimos com `dueDate < agora` e status `active` como `overdue`
+- Esta atualização ocorre no momento da requisição (lazy evaluation)
+
+**RN-EMP-06: Devolução e fila**
+- Devolução com fila presente: livro → `reserved`, primeiro `waiting` → `notified` (com `notifiedAt` e `expiresAt`)
+- Devolução sem fila: livro → `available`
+
+---
+
+### 10.2 Reservas e Fila
+
+**RN-RES-01: Posição na fila**
+- Posições são inteiros sequenciais começando em 1
+- Ao adicionar: `position = MAX(position para o bookId) + 1`
+- Ao cancelar/cumprir: posições dos registros seguintes são decrescidas em 1 (normalização FIFO)
+
+**RN-RES-02: Reserva direta**
+- Se livro está `available` ao adicionar reserva → livro vai imediatamente para `reserved` e reserva já nasce como `notified`
+- Se livro está `borrowed` → reserva nasce como `waiting`
+
+**RN-RES-03: Elegibilidade para reserva**
+- Somente leitores com status `active` podem ser adicionados à fila
+
+**RN-RES-04: Notificação e prazo**
+- Ao notificar: `notifiedAt = agora`, `expiresAt = agora + 3 dias`
+- Somente o primeiro `waiting` por livro pode ser notificado
+
+**RN-RES-05: Expiração**
+- Reservas `notified` após `expiresAt` são consideradas "expiradas"
+- Expiração não ocorre automaticamente; admin deve usar "Avançar" para forçar skip
+- Ao "Avançar": reserva atual → `cancelled`, próximo `waiting` → `notified`
+
+**RN-RES-06: Cancelamento da única reserva**
+- Se cancelar a única reserva de um livro `reserved` → livro volta para `available`
+
+---
+
+### 10.3 Acervo
+
+**RN-ACE-01: Status do livro é calculado pelo sistema**
+- Admin não altera o status do livro diretamente via empréstimo/devolução/reserva
+- Status é sempre resultado das operações nas tabelas `loans` e `reservations`
+- Admin pode alterar o status manualmente na edição do livro (para casos como `lost`, `unavailable`)
+
+**RN-ACE-02: Exclusão de livro**
+- Livro com registros na tabela `loans` não pode ser excluído (FK sem CASCADE)
+- Admin deve inativar o livro (status `unavailable`) em vez de excluir
+
+---
+
+### 10.4 Autenticação
+
+**RN-AUTH-01: Dois contextos independentes de JWT**
+- Admin: token gerado em `POST /api/auth/login`, verificado por `authMiddleware`
+- Leitor: token gerado em `POST /api/reader/auth/login`, verificado por `readerAuthMiddleware`
+- Tokens não são intercambiáveis
+
+**RN-AUTH-02: Senha do leitor é opcional**
+- Leitor cadastrado pelo admin sem senha não tem acesso ao portal autenticado
+- Leitor pode acessar `/leitor` (consulta pública por e-mail) sem senha
+- Leitor pode definir/alterar senha pelo perfil após login
+
+---
+
+## 11. Autenticação e Segurança
+
+### 11.1 Fluxo de Autenticação Admin
+
+```
+1. POST /api/auth/login { email, password }
+2. Servidor: bcrypt.compare(password, admin.passwordHash)
+3. Sucesso: jwt.sign({ adminId, email }, JWT_SECRET, { expiresIn: '7d' })
+4. Cliente: armazena token em localStorage
+5. Requisições: header Authorization: Bearer <token>
+6. Middleware: jwt.verify(token, JWT_SECRET) → req.admin
+```
+
+### 11.2 Fluxo de Autenticação do Leitor
+
+```
+1. POST /api/reader/auth/login { email, password }
+2. Servidor: bcrypt.compare(password, user.passwordHash)
+3. Sucesso: jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '30d' })
+4. Cliente: armazena token em localStorage
+5. Requisições: header Authorization: Bearer <token>
+6. Middleware: jwt.verify(token, JWT_SECRET) → req.reader
+```
+
+### 11.3 Considerações de Segurança
+
+| Aspecto | Implementação |
+|---|---|
+| Senhas | Hash com bcrypt (salt rounds padrão) |
+| JWT | HS256, secrets via env var `JWT_SECRET` |
+| CORS | Configurado para aceitar origem do frontend |
+| Entradas | Validadas com Zod antes de qualquer operação no DB |
+| Erros | Mensagens genéricas expostas (sem stack traces em produção) |
+| WhatsApp | Integração apenas no frontend (sem envio server-side), sem armazenamento de chaves |
+
+---
+
+## 12. Integrações Externas
+
+### 12.1 Gemini AI (Google)
+
+**Uso:** Busca automática de dados de livros durante o cadastro
+
+**Endpoint:** `POST /api/gemini/book-search`
+
+**Como funciona:**
+1. Admin digita título, ISBN ou trecho no campo de busca na tela de novo livro
+2. Backend envia a query para a API Gemini via cliente configurado com `AI_INTEGRATIONS_GEMINI_BASE_URL` e `AI_INTEGRATIONS_GEMINI_API_KEY`
+3. Gemini retorna: título, autor, gênero, ano, ISBN, sinopse e URL de capa sugerida
+4. Campos são preenchidos automaticamente no formulário; admin pode editar antes de salvar
+
+**Configuração:** Via Replit AI Integrations (sem necessidade de chave própria no Replit)
+
+---
+
+### 12.2 WhatsApp
+
+**Uso:** Notificação de disponibilidade de reserva
+
+**Tipo de integração:** Link `wa.me/` gerado no frontend (sem API oficial do WhatsApp)
+
+**Fluxo:**
+1. Admin clica no botão WhatsApp em uma reserva ou empréstimo
+2. Frontend chama `PATCH /api/reservations/:id/notify` para registrar `notifiedAt`
+3. Frontend abre `https://wa.me/55{telefone}?text={mensagem_codificada}` em nova aba
+4. Admin envia a mensagem manualmente pelo WhatsApp Web/app
+
+**Limitações:**
+- Admin precisa enviar a mensagem manualmente (não é envio automático)
+- Requer que o leitor tenha WhatsApp instalado com o número cadastrado
+- Validação mínima: número deve ter pelo menos 10 dígitos
+
+---
+
+## 13. Especificações Técnicas
+
+### 13.1 Dependências Principais
+
+**Backend (api-server):**
+```
+express ^5.x         — Servidor HTTP
+drizzle-orm          — ORM para PostgreSQL
+drizzle-zod          — Geração de schemas Zod a partir do schema Drizzle
+zod/v4               — Validação de dados
+jsonwebtoken         — Geração e verificação de JWT
+bcryptjs             — Hash de senhas
+pg                   — Driver PostgreSQL
+tsx                  — Execução de TypeScript com watch mode
+esbuild              — Build de produção (bundle CJS)
+```
+
+**Frontend (biblioteca):**
+```
+react ^19            — UI framework
+vite ^7              — Dev server e build
+@tanstack/react-query — Cache e sincronização de estado server
+wouter               — Roteamento client-side (leve)
+@radix-ui/*          — Primitivos de UI acessíveis (via shadcn/ui)
+tailwindcss          — Estilização utility-first
+lucide-react         — Ícones
+date-fns             — Manipulação de datas
+```
+
+**Monorepo / Tooling:**
+```
+pnpm ^9              — Gerenciador de pacotes com workspaces
+orval ^8             — Geração de hooks React Query a partir de OpenAPI
+typescript ^5.9      — Tipagem estática
+drizzle-kit          — CLI do Drizzle (push, generate, studio)
+```
+
+### 13.2 Variáveis de Ambiente
+
+| Variável | Onde | Obrigatória | Descrição |
+|---|---|---|---|
+| `DATABASE_URL` | api-server | Sim | URL de conexão PostgreSQL |
+| `JWT_SECRET` | api-server | Sim | Chave secreta para assinar JWTs |
+| `PORT` | api-server | Sim (auto) | Porta do servidor (default 8080) |
+| `NODE_ENV` | api-server | Não | `development` ou `production` |
+| `AI_INTEGRATIONS_GEMINI_BASE_URL` | api-server | Não | URL base do Gemini AI |
+| `AI_INTEGRATIONS_GEMINI_API_KEY` | api-server | Não | Chave da API Gemini |
+| `VITE_API_URL` | biblioteca | Não | URL base da API (dev) |
+| `BASE_PATH` | biblioteca | Não | Prefixo de rota do frontend |
+
+### 13.3 Scripts Disponíveis
+
+```bash
+# Instalar todas as dependências do monorepo
+pnpm install
+
+# Aplicar schema ao banco de dados
+pnpm --filter @workspace/db run push
+
+# Popular banco com dados de demonstração
+pnpm --filter @workspace/scripts run seed
+
+# Regenerar hooks e schemas a partir do OpenAPI
+pnpm --filter @workspace/api-spec run codegen
+
+# Iniciar API em modo de desenvolvimento (com hot-reload)
+pnpm --filter @workspace/api-server run dev
+
+# Iniciar frontend em modo de desenvolvimento
+pnpm --filter @workspace/biblioteca run dev
+
+# Build do frontend para produção
+pnpm --filter @workspace/biblioteca run build
+
+# Build do servidor para produção (bundle CJS)
+pnpm --filter @workspace/api-server run build
+```
+
+### 13.4 Porta e Routing
+
+| Serviço | Porta Dev | Preview |
+|---|---|---|
+| Frontend (Vite) | 25303 | `/` |
+| API Server (Express) | 8080 | `/api/...` |
+| Mockup Sandbox | 8081 | `/__mockup` |
+
+Em produção no Replit, o tráfego é roteado pelo proxy via HTTPS com mTLS. O frontend usa `import.meta.env.BASE_URL` para construir URLs de assets e o cliente de API usa `customFetch` gerado pelo Orval com a URL base configurada.
+
+---
+
+## 14. Fora do Escopo
+
+Os itens abaixo foram identificados e **deliberadamente excluídos** desta versão:
+
+| Item | Motivo |
+|---|---|
+| Pagamento de multas por atraso | Complexidade jurídica e financeira; pode ser adicionado futuramente |
+| Envio automático de WhatsApp (API oficial) | Requer conta Business verificada no Meta; fora do orçamento típico de um condomínio |
+| Notificações push (PWA/email) | Fora do escopo desta versão |
+| App mobile nativo | Responsividade web cobre o uso mobile |
+| Múltiplos exemplares do mesmo livro | Schema atual não suporta; feature futura |
+| Reserva de salas ou outros recursos | Sistema focalizado em livros |
+| Relatórios de acervo mais acessado | Pode ser adicionado na próxima iteração |
+| Integração com sistemas de condomínio (GestiCond, etc.) | Dependência de APIs de terceiros; avaliação futura |
+| Multi-tenant (múltiplos condomínios) | Arquitetura atual é single-tenant |
