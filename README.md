@@ -1,5 +1,7 @@
 # 📚 Condominium Library
 
+![demo](https://github.com/made-with-IA/Cond-Library-h26/blob/main/.docs/capa.png)
+
 A full-stack community library management system for condominiums. Administrators can manage the book catalog, loans, and reservations, while residents can browse and reserve books directly from their smartphones — no app installation required.
 
 ---
