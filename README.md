@@ -1,101 +1,101 @@
-# 📚 Biblioteca do Condomínio
+# 📚 Condominium Library
 
-Sistema completo de gestão de biblioteca comunitária para condomínios. Permite que administradores gerenciem o acervo, empréstimos e reservas, e que moradores consultem e reservem livros pelo próprio smartphone — sem instalar nada.
+A full-stack community library management system for condominiums. Administrators can manage the book catalog, loans, and reservations, while residents can browse and reserve books directly from their smartphones — no app installation required.
 
 ---
 
-## Funcionalidades
+## Features
 
-### Área Pública (Moradores)
+### Public Area (Residents)
 
-| Funcionalidade | Descrição |
+| Feature | Description |
 |---|---|
-| Vitrine pública | Página inicial com estatísticas do acervo, livros populares e comunicados |
-| Consulta por e-mail | Morador digita o e-mail e vê todos os seus empréstimos e reservas sem precisar de login |
-| Portal do Leitor | Área autenticada com painel, catálogo, histórico de empréstimos e fila de reservas |
-| Catálogo de livros | Pesquisa e filtro por gênero; morador pode reservar livros diretamente |
-| Meus Empréstimos | Lista de empréstimos ativos, histórico e datas de devolução |
-| Minhas Reservas | Acompanhamento das reservas e posição na fila de espera |
-| Perfil | Atualização de dados de contato e senha |
+| Public showcase | Homepage with catalog statistics, popular books, and announcements |
+| Email lookup | Residents enter their email to view all their loans and reservations without logging in |
+| Reader Portal | Authenticated area with a dashboard, catalog, loan history, and reservation queue |
+| Book catalog | Search and filter by genre; residents can reserve books directly |
+| My Loans | List of active loans, history, and due dates |
+| My Reservations | Track reservations and queue position |
+| Profile | Update contact information and password |
 
-### Área Administrativa
+### Admin Area
 
-| Funcionalidade | Descrição |
+| Feature | Description |
 |---|---|
-| Dashboard | Métricas em tempo real: total de livros, disponíveis, empréstimos ativos, usuários |
-| Acervo | CRUD completo de livros com busca por IA (Gemini) para preencher dados automaticamente |
-| Leitores | Cadastro e gestão de moradores com histórico individual de empréstimos |
-| Empréstimos | Registro de retiradas/devoluções com filtros rápidos: Em Atraso / Vencendo em 3 dias |
-| Fila de Reservas | Gestão de fila por livro com abas: Ativas, Expiradas, Aguardando, Histórico |
-| Notificação WhatsApp | Botão que abre conversa no WhatsApp com mensagem pronta ao notificar leitor da disponibilidade |
-| Relatórios | Relatório de devoluções com filtros por período e status; exportação em CSV |
-| Comunicados | Publicação de regras, informes e avisos visíveis na página pública |
-| Administradores | Gestão de usuários com acesso ao painel admin |
+| Dashboard | Real-time metrics: total books, available, active loans, users |
+| Catalog | Full CRUD for books with AI-powered search (Gemini) to auto-fill book data |
+| Readers | Register and manage residents with individual loan history |
+| Loans | Record checkouts/returns with quick filters: Overdue / Due in 3 days |
+| Reservation Queue | Per-book queue management with tabs: Active, Expired, Waiting, History |
+| WhatsApp Notification | Button that opens a WhatsApp conversation with a pre-filled message to notify the reader of availability |
+| Reports | Return reports with filters by date range and status; CSV export |
+| Announcements | Publish rules, notices, and alerts visible on the public page |
+| Administrators | Manage users with access to the admin panel |
 
 ---
 
-## Regras de Negócio
+## Business Rules
 
-- Livros só podem ser emprestados quando **disponível** ou **reservado** (neste caso, apenas quem está na frente da fila pode retirar)
-- Ao registrar empréstimo, o livro vai para **emprestado**; reserva do leitor é marcada como **cumprida**
-- Na devolução: se há fila → livro vai para **reservado** e o primeiro da fila é notificado; sem fila → livro volta a **disponível**
-- Empréstimos vencidos são marcados como **atrasado** automaticamente
-- Notificação de fila expira em **3 dias**; ao expirar, o próximo da lista é promovido
-- Apenas leitores com status **ativo** podem realizar empréstimos e reservas
+- Books can only be loaned when **available** or **reserved** (in the latter case, only the reader at the front of the queue may check out)
+- When a loan is registered, the book becomes **borrowed**; the reader's reservation is marked as **fulfilled**
+- On return: if there is a queue → book becomes **reserved** and the first in line is notified; no queue → book returns to **available**
+- Overdue loans are automatically marked as **overdue**
+- Queue notifications expire in **3 days**; on expiry, the next person in line is promoted
+- Only readers with **active** status can take out loans or make reservations
 
 ---
 
-## Especificações Técnicas
+## Technical Specifications
 
 ### Stack
 
-| Camada | Tecnologia |
+| Layer | Technology |
 |---|---|
 | Monorepo | pnpm workspaces |
 | Runtime | Node.js 24 |
 | Backend | Express 5 (TypeScript) |
 | Frontend | React 19 + Vite 7 (TypeScript) |
-| Banco de dados | PostgreSQL + Drizzle ORM |
-| Validação | Zod v4 + drizzle-zod |
-| Autenticação | JWT (jsonwebtoken + bcryptjs) — fluxo separado para admins e leitores |
-| API | OpenAPI 3.0 com geração automática de hooks via Orval |
+| Database | PostgreSQL + Drizzle ORM |
+| Validation | Zod v4 + drizzle-zod |
+| Authentication | JWT (jsonwebtoken + bcryptjs) — separate flows for admins and readers |
+| API | OpenAPI 3.0 with automatic hook generation via Orval |
 | UI | Tailwind CSS + shadcn/ui + Lucide Icons |
-| IA | Gemini AI (busca automática de dados do livro por ISBN ou título) |
-| Build | esbuild (bundle para produção) |
+| AI | Gemini AI (automatic book data lookup by ISBN or title) |
+| Build | esbuild (production bundle) |
 
-### Estrutura do Monorepo
+### Monorepo Structure
 
 ```
-biblioteca-condominio/
+condominium-library/
 ├── artifacts/
-│   ├── api-server/           # Servidor Express (porta 8080)
+│   ├── api-server/           # Express server (port 8080)
 │   │   └── src/
-│   │       ├── routes/       # Rotas da API
-│   │       ├── middlewares/  # Auth middleware (admin + leitor)
+│   │       ├── routes/       # API routes
+│   │       ├── middlewares/  # Auth middleware (admin + reader)
 │   │       └── index.ts      # Entry point
-│   └── biblioteca/           # Frontend React + Vite
+│   └── biblioteca/           # React + Vite frontend
 │       └── src/
 │           ├── pages/
-│           │   ├── public/   # Área pública
-│           │   ├── reader/   # Portal do leitor (autenticado)
-│           │   └── admin/    # Painel administrativo
+│           │   ├── public/   # Public area
+│           │   ├── reader/   # Reader portal (authenticated)
+│           │   └── admin/    # Admin panel
 │           ├── components/
 │           ├── contexts/     # ReaderAuthContext, AdminAuthContext
 │           └── App.tsx
 ├── lib/
-│   ├── api-spec/             # openapi.yaml + config Orval
-│   ├── api-client-react/     # Hooks gerados (React Query)
-│   ├── api-zod/              # Schemas Zod gerados
-│   ├── db/                   # Schema Drizzle + conexão PostgreSQL
-│   └── integrations-gemini-ai/  # Cliente Gemini AI
+│   ├── api-spec/             # openapi.yaml + Orval config
+│   ├── api-client-react/     # Generated hooks (React Query)
+│   ├── api-zod/              # Generated Zod schemas
+│   ├── db/                   # Drizzle schema + PostgreSQL connection
+│   └── integrations-gemini-ai/  # Gemini AI client
 ├── scripts/
-│   └── src/seed.ts           # Script de dados de demonstração
+│   └── src/seed.ts           # Demo data seed script
 └── pnpm-workspace.yaml
 ```
 
-### Banco de Dados
+### Database
 
-| Tabela | Campos principais |
+| Table | Main fields |
 |---|---|
 | `admins` | id, name, email, passwordHash |
 | `users` | id, name, email, phone, block, house, status, passwordHash |
@@ -104,118 +104,118 @@ biblioteca-condominio/
 | `reservations` | id, bookId, userId, position, status, notifiedAt, expiresAt |
 | `library_notes` | id, title, content, type, active |
 
-**Status de livro:** `draft` · `available` · `borrowed` · `reserved` · `lost` · `unavailable`
+**Book status:** `draft` · `available` · `borrowed` · `reserved` · `lost` · `unavailable`
 
-**Status de empréstimo:** `active` · `returned` · `overdue`
+**Loan status:** `active` · `returned` · `overdue`
 
-**Status de reserva:** `waiting` · `notified` · `fulfilled` · `cancelled`
+**Reservation status:** `waiting` · `notified` · `fulfilled` · `cancelled`
 
-**Status de leitor:** `pending` · `active` · `inactive` · `blocked`
-
----
-
-## Endpoints da API
-
-```
-# Saúde
-GET    /api/healthz                      Verificação de saúde da API
-
-# Autenticação de administrador
-POST   /api/auth/login                   Login do administrador
-POST   /api/auth/logout                  Logout (invalida sessão no cliente)
-GET    /api/auth/me                      Dados do admin autenticado
-
-# Administradores
-GET    /api/admins                       Listar admins
-POST   /api/admins                       Criar admin
-DELETE /api/admins/:id                   Remover admin
-
-# Livros
-GET    /api/books                        Listar livros (search, status, genre, page, limit)
-POST   /api/books                        Criar livro
-GET    /api/books/:id                    Detalhes + histórico de empréstimos e reservas
-PATCH  /api/books/:id                    Atualizar livro
-DELETE /api/books/:id                    Remover livro (proibido se há histórico de empréstimo)
-
-# Leitores (admin)
-GET    /api/users                        Listar leitores (search, status, page, limit)
-POST   /api/users                        Cadastrar leitor
-GET    /api/users/:id                    Perfil + histórico de empréstimos
-PATCH  /api/users/:id                    Atualizar leitor
-DELETE /api/users/:id                    Remover leitor
-
-# Empréstimos (admin)
-GET    /api/loans                        Listar empréstimos (status, userId, bookId, dueSoon, dueDateFrom, dueDateTo)
-POST   /api/loans                        Registrar empréstimo
-GET    /api/loans/:id                    Detalhes do empréstimo
-PATCH  /api/loans/:id/return             Devolver livro
-
-# Fila de reservas (admin)
-GET    /api/reservations                 Listar reservas (bookId, userId, status)
-POST   /api/reservations                 Adicionar leitor à fila
-PATCH  /api/reservations/:id             Ações: notify / cancel / fulfill / advance
-DELETE /api/reservations/:id             Remover da fila
-PATCH  /api/reservations/:id/notify      Registrar notificação WhatsApp (atualiza notifiedAt)
-
-# Dashboard administrativo
-GET    /api/dashboard                    Métricas em tempo real (livros, empréstimos, leitores)
-
-# Comunicados
-GET    /api/notes                        Listar comunicados ativos (público)
-GET    /api/notes?all=true               Listar todos os comunicados (requer auth admin)
-POST   /api/notes                        Criar comunicado (requer auth admin)
-PATCH  /api/notes/:id                    Atualizar comunicado (requer auth admin)
-DELETE /api/notes/:id                    Remover comunicado (requer auth admin)
-
-# IA — Gemini (requer auth admin)
-POST   /api/gemini/book-search           Busca dados do livro por título ou ISBN
-
-# Portal do leitor — Autenticação
-POST   /api/reader/auth/login            Login do leitor
-GET    /api/reader/auth/me               Dados do leitor autenticado
-
-# Portal do leitor — Consulta pública
-POST   /api/reader/lookup                Consulta por e-mail sem login (retorna empréstimos e reservas)
-
-# Portal do leitor — Área autenticada
-GET    /api/reader/dashboard             Resumo do painel do leitor
-GET    /api/reader/loans                 Empréstimos ativos e histórico do leitor logado
-GET    /api/reader/reservations          Reservas do leitor logado
-POST   /api/reader/reservations          Reservar livro (apenas leitores ativos)
-DELETE /api/reader/reservations/:id      Cancelar reserva
-PATCH  /api/reader/profile               Atualizar telefone e/ou senha
-```
+**Reader status:** `pending` · `active` · `inactive` · `blocked`
 
 ---
 
-## Instalação e Execução Local
+## API Endpoints
 
-### Pré-requisitos
+```
+# Health
+GET    /api/healthz                      API health check
 
-- Node.js 24 ou superior
-- pnpm 9 ou superior — instalar com: `npm install -g pnpm`
-- PostgreSQL em execução local (ou URL de conexão remota)
+# Admin authentication
+POST   /api/auth/login                   Admin login
+POST   /api/auth/logout                  Logout (invalidates session on client)
+GET    /api/auth/me                      Authenticated admin data
 
-### 1. Clonar e instalar dependências
+# Administrators
+GET    /api/admins                       List admins
+POST   /api/admins                       Create admin
+DELETE /api/admins/:id                   Delete admin
+
+# Books
+GET    /api/books                        List books (search, status, genre, page, limit)
+POST   /api/books                        Create book
+GET    /api/books/:id                    Details + loan and reservation history
+PATCH  /api/books/:id                    Update book
+DELETE /api/books/:id                    Delete book (forbidden if loan history exists)
+
+# Readers (admin)
+GET    /api/users                        List readers (search, status, page, limit)
+POST   /api/users                        Register reader
+GET    /api/users/:id                    Profile + loan history
+PATCH  /api/users/:id                    Update reader
+DELETE /api/users/:id                    Delete reader
+
+# Loans (admin)
+GET    /api/loans                        List loans (status, userId, bookId, dueSoon, dueDateFrom, dueDateTo)
+POST   /api/loans                        Register loan
+GET    /api/loans/:id                    Loan details
+PATCH  /api/loans/:id/return             Return book
+
+# Reservation queue (admin)
+GET    /api/reservations                 List reservations (bookId, userId, status)
+POST   /api/reservations                 Add reader to queue
+PATCH  /api/reservations/:id             Actions: notify / cancel / fulfill / advance
+DELETE /api/reservations/:id             Remove from queue
+PATCH  /api/reservations/:id/notify      Record WhatsApp notification (updates notifiedAt)
+
+# Admin dashboard
+GET    /api/dashboard                    Real-time metrics (books, loans, readers)
+
+# Announcements
+GET    /api/notes                        List active announcements (public)
+GET    /api/notes?all=true               List all announcements (requires admin auth)
+POST   /api/notes                        Create announcement (requires admin auth)
+PATCH  /api/notes/:id                    Update announcement (requires admin auth)
+DELETE /api/notes/:id                    Delete announcement (requires admin auth)
+
+# AI — Gemini (requires admin auth)
+POST   /api/gemini/book-search           Look up book data by title or ISBN
+
+# Reader portal — Authentication
+POST   /api/reader/auth/login            Reader login
+GET    /api/reader/auth/me               Authenticated reader data
+
+# Reader portal — Public lookup
+POST   /api/reader/lookup                Email lookup without login (returns loans and reservations)
+
+# Reader portal — Authenticated area
+GET    /api/reader/dashboard             Reader dashboard summary
+GET    /api/reader/loans                 Active loans and history for the logged-in reader
+GET    /api/reader/reservations          Reservations for the logged-in reader
+POST   /api/reader/reservations          Reserve a book (active readers only)
+DELETE /api/reader/reservations/:id      Cancel reservation
+PATCH  /api/reader/profile               Update phone number and/or password
+```
+
+---
+
+## Local Setup
+
+### Prerequisites
+
+- Node.js 24 or higher
+- pnpm 9 or higher — install with: `npm install -g pnpm`
+- PostgreSQL running locally (or a remote connection URL)
+
+### 1. Clone and install dependencies
 
 ```bash
-git clone <url-do-repositorio>
-cd biblioteca-condominio
+git clone <repository-url>
+cd condominium-library
 pnpm install
 ```
 
-### 2. Configurar variáveis de ambiente
+### 2. Configure environment variables
 
-Crie o arquivo `artifacts/api-server/.env`:
+Create `artifacts/api-server/.env`:
 
 ```env
-DATABASE_URL=postgresql://usuario:senha@localhost:5432/biblioteca
-JWT_SECRET=sua-chave-secreta-aqui
+DATABASE_URL=postgresql://user:password@localhost:5432/biblioteca
+JWT_SECRET=your-secret-key-here
 PORT=8080
 NODE_ENV=development
 ```
 
-Crie o arquivo `artifacts/biblioteca/.env`:
+Create `artifacts/biblioteca/.env`:
 
 ```env
 PORT=3000
@@ -223,33 +223,33 @@ BASE_PATH=/
 VITE_API_URL=http://localhost:8080
 ```
 
-> **Variáveis obrigatórias do frontend:** `PORT` define a porta do servidor Vite; `BASE_PATH` define o prefixo de rota da aplicação (use `/` para desenvolvimento local). Ambas são exigidas pelo `vite.config.ts`.
+> **Required frontend variables:** `PORT` sets the Vite dev server port; `BASE_PATH` sets the application route prefix (use `/` for local development). Both are required by `vite.config.ts`.
 
-Para usar a busca com Gemini AI, configure também:
+To enable Gemini AI book search, also add to the API server `.env`:
 
 ```env
 AI_INTEGRATIONS_GEMINI_BASE_URL=https://...
-AI_INTEGRATIONS_GEMINI_API_KEY=sua-chave
+AI_INTEGRATIONS_GEMINI_API_KEY=your-key
 ```
 
-### 3. Criar o banco de dados e aplicar o schema
+### 3. Create the database and apply the schema
 
 ```bash
-# Aplica o schema Drizzle no banco de dados
+# Pushes the Drizzle schema to the database
 pnpm --filter @workspace/db run push
 ```
 
-### 4. Popular com dados de demonstração (opcional)
+### 4. Seed demo data (optional)
 
 ```bash
 pnpm --filter @workspace/scripts run seed
 ```
 
-Isso cria:
-- **Administrador:** `admin@biblioteca.com` / senha `admin123`
-- Leitores, livros, empréstimos e reservas de exemplo
+This creates:
+- **Administrator:** `admin@biblioteca.com` / password `admin123`
+- Sample readers, books, loans, and reservations
 
-### 5. Iniciar em modo de desenvolvimento
+### 5. Start in development mode
 
 ```bash
 # Terminal 1 — API Server
@@ -259,19 +259,19 @@ PORT=8080 pnpm --filter @workspace/api-server run dev
 pnpm --filter @workspace/biblioteca run dev
 ```
 
-Acesse em: `http://localhost:3000`
+Access at: `http://localhost:3000`
 
-### 6. Build para produção
+### 6. Build for production
 
 ```bash
-# Build do frontend
+# Build the frontend
 pnpm --filter @workspace/biblioteca run build
 
-# Build do servidor (bundle esbuild)
+# Build the server (esbuild bundle)
 pnpm --filter @workspace/api-server run build
 ```
 
-Para rodar em produção:
+To run in production:
 
 ```bash
 NODE_ENV=production PORT=8080 node artifacts/api-server/dist/index.mjs
@@ -279,19 +279,19 @@ NODE_ENV=production PORT=8080 node artifacts/api-server/dist/index.mjs
 
 ---
 
-## Desenvolvimento
+## Development
 
-### Atualizar a API (fluxo OpenAPI → hooks gerados)
+### Update the API (OpenAPI → generated hooks)
 
-Ao modificar `lib/api-spec/openapi.yaml`, regenere os hooks e schemas:
+After modifying `lib/api-spec/openapi.yaml`, regenerate the hooks and schemas:
 
 ```bash
 pnpm --filter @workspace/api-spec run codegen
 ```
 
-### Atualizar o banco de dados
+### Update the database
 
-Após alterar schemas em `lib/db/src/schema/`:
+After changing schemas in `lib/db/src/schema/`:
 
 ```bash
 pnpm --filter @workspace/db run push
@@ -299,11 +299,11 @@ pnpm --filter @workspace/db run push
 
 ---
 
-## Acesso ao Sistema
+## Access
 
-| Área | URL | Credencial |
+| Area | URL | Credentials |
 |---|---|---|
-| Página pública | `/` | — |
-| Consulta rápida (leitor) | `/leitor` | E-mail cadastrado |
-| Portal do leitor | `/leitor/login` | E-mail + senha do cadastro |
-| Painel administrativo | `/admin/login` | `admin@biblioteca.com` / `admin123` |
+| Public page | `/` | — |
+| Quick lookup (reader) | `/leitor` | Registered email |
+| Reader portal | `/leitor/login` | Email + registered password |
+| Admin panel | `/admin/login` | `admin@biblioteca.com` / `admin123` |
