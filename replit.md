@@ -25,7 +25,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── biblioteca/         # React + Vite frontend (preview at /)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -131,6 +132,24 @@ Gemini AI client using `@google/genai`. Exports `ai` (GoogleGenAI instance), `ge
 
 - Requires env vars: `AI_INTEGRATIONS_GEMINI_BASE_URL`, `AI_INTEGRATIONS_GEMINI_API_KEY`
 - The `@google/genai` package is bundled by esbuild (not externalized)
+
+### `artifacts/biblioteca` (`@workspace/biblioteca`)
+
+React + Vite frontend for the Biblioteca do Condomínio system. Served at `/`.
+
+- Entry: `src/main.tsx` → `src/App.tsx`
+- Routing: Wouter with three layout components: `PublicLayout`, `ReaderLayout`, `AdminLayout`
+- Auth: Two separate JWT contexts: `AdminAuthContext` (7d token) and `ReaderAuthContext` (30d token), stored in `localStorage`
+- Components: Monolithic `src/components/ui.tsx` with Button, Card, Input, etc. plus `src/components/layouts.tsx`
+- Pages:
+  - Public: `/` (homepage with stats), `/lookup` (email lookup)
+  - Reader: `/reader/login`, `/reader/dashboard`, `/reader/catalog`, `/reader/loans`, `/reader/reservations`, `/reader/profile`
+  - Admin: `/admin/login`, `/admin/dashboard`, `/admin/books`, `/admin/readers`, `/admin/loans`, `/admin/reservations`, `/admin/reports`, `/admin/notes`, `/admin/admins`
+- UI strings: Centralized in `src/lib/constants.ts` (`STRINGS` object) for future i18n
+- API client: Uses `@workspace/api-client-react` with `setBaseUrl` and `setAuthTokenGetter` for auth injection
+- Gemini AI: Admin book form has "AI Search" button that calls the Gemini endpoint to auto-fill book data
+- WhatsApp integration: Reservation notify action opens `wa.me` link with pre-formatted message
+- CSV export: Client-side via `papaparse` on the reports page
 
 ### `scripts` (`@workspace/scripts`)
 
