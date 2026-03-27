@@ -17,6 +17,27 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run dev & pnpm --filter @workspace/biblioteca run dev"
+waitForPort = 25303
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -28,3 +49,4 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
+JWT_SECRET = "84fca821724133d45063e53437b3a23424d30785401810462733079f98616c4a08cefa90f9a74ae06fe09198b98b911937581d6048c86b042484e7ce3350df73"
