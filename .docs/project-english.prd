@@ -1,0 +1,415 @@
+# 📘 Product Requirements Document (PRD)
+## Library Management System (Condominium)
+
+---
+
+## 1. Product Overview
+
+The Library Management System is a web-based application designed to manage a condominium library. It enables administrators to control books, users, loans, reservations, and waitlists, while providing readers with an intuitive interface to explore and interact with the catalog.
+
+The system is composed of two primary roles:
+- **Administrator**
+- **Reader**
+
+---
+
+## 2. Product Goals
+
+- Provide a simple and efficient way to manage book circulation
+- Improve reader experience with reservations and waitlists
+- Ensure data consistency and traceability of all operations
+- Reduce overdue returns through monitoring and reporting
+- Enable communication with users via WhatsApp integration
+- Maintain high code quality using **SOLID principles** and **Clean Code practices**
+
+---
+
+## 3. System Language Standard
+
+⚠️ **Important Requirement**
+
+The entire system must follow **English as the default language**, including:
+
+- Database fields
+- API contracts
+- Variable and function names
+- Enums and statuses
+- Domain terminology
+
+### Example Mapping
+
+| Portuguese | English |
+|----------|--------|
+| nome | name |
+| livro | book |
+| usuário | user |
+| empréstimo | loan |
+| devolução | return |
+| fila | waitlist |
+| reserva | reservation |
+
+---
+
+## 4. User Roles
+
+### 4.1 Administrator
+
+Responsible for managing the system.
+
+**Capabilities:**
+- Manage books (CRUD)
+- Manage users
+- Control loans and returns
+- Manage reservations and waitlists
+- Generate reports
+- Notify users via WhatsApp
+
+---
+
+### 4.2 Reader
+
+End user of the library.
+
+**Capabilities:**
+- Browse books
+- Filter and search catalog
+- Reserve books
+- Join waitlists
+- View personal loans and reservations
+
+---
+
+## 5. Core Features
+
+---
+
+## 5.1 Book Management
+
+**Fields:**
+- `title`
+- `author`
+- `genre`
+- `coverImage`
+- `description`
+- `status`:
+  - `draft`
+  - `available`
+  - `reserved`
+  - `borrowed`
+  - `missing`
+  - `lost`
+
+**Rules:**
+- Status must always reflect real availability
+
+---
+
+## 5.2 User Management
+
+**Fields:**
+- `name`
+- `email`
+- `whatsapp`
+- `block`
+- `unit`
+- `status`:
+  - `pending`
+  - `active`
+  - `inactive`
+  - `blocked`
+
+**Rules:**
+- Only `active` users can interact with the system
+
+---
+
+## 5.3 Loan Management
+
+**Fields:**
+- `bookId`
+- `userId`
+- `loanDate`
+- `dueDate`
+- `returnDate`
+- `status`:
+  - `active`
+  - `returned`
+  - `overdue`
+
+**Features:**
+- Register loan
+- Register return
+- Track overdue loans
+
+---
+
+## 5.4 Reservation System
+
+**Fields:**
+- `bookId`
+- `userId`
+- `status`
+- `createdAt`
+- `notifiedAt`
+- `expiresAt`
+
+**Rules:**
+- No duplicate reservations per user per book
+- Reservation must expire after a defined period
+- Expired reservations release the next in queue
+
+---
+
+## 5.5 Waitlist (Queue)
+
+**Fields:**
+- `bookId`
+- `userId`
+- `position`
+- `createdAt`
+- `status`
+
+**Rules:**
+- FIFO (First In, First Out)
+- Positions must always be continuous (1,2,3…)
+- Reorder after cancellation
+
+---
+
+## 5.6 Reports (Admin)
+
+### Loan Due & Overdue Report
+
+**Filters:**
+- `startDate`
+- `endDate`
+- `status`
+- `bookId`
+- `userId`
+
+**Data:**
+- Book
+- User
+- Loan date
+- Due date
+- Days overdue
+- Status
+
+---
+
+## 5.7 WhatsApp Integration
+
+**Purpose:**
+Notify users when a book is available.
+
+**Message Template:**
+Hello, [userName]!
+The book "[bookTitle]" is now available for pickup at the condominium library.
+Please collect it within the allowed time.
+
+
+**Requirements:**
+- Generate `wa.me` link
+- Only available if user has valid phone number
+
+---
+
+## 5.8 Reader Area
+
+---
+
+### 5.8.1 Catalog
+
+**Features:**
+- List books
+- Search by:
+  - title
+  - author
+  - genre
+- Filter by:
+  - available
+  - reserved
+  - borrowed
+
+---
+
+### 5.8.2 Book Details
+
+**Display:**
+- title
+- author
+- genre
+- cover image
+- description
+- status
+- availability
+- waitlist position (if applicable)
+
+**Actions:**
+- Reserve book
+- Join waitlist
+
+---
+
+### 5.8.3 My Loans
+
+**Display:**
+- borrowed books
+- due dates
+- overdue status
+
+---
+
+### 5.8.4 My Reservations
+
+**Display:**
+- reserved books
+- expiration date
+
+---
+
+### 5.8.5 My Waitlist
+
+**Display:**
+- book
+- position
+- status
+
+---
+
+## 6. Business Rules
+
+1. Only `active` users can:
+   - reserve books
+   - join waitlists
+   - borrow books
+
+2. A user cannot:
+   - reserve the same book twice
+   - join waitlist if already reserved or borrowed
+
+3. If a book is unavailable:
+   - user must join waitlist
+
+4. When a book is returned:
+   - prioritize reservations/waitlist before marking as available
+
+5. Book status priority:
+borrowed > reserved > available
+
+
+6. Waitlist must always be normalized after updates
+
+---
+
+## 7. Technical Requirements
+
+### 7.1 Architecture
+
+The system must follow:
+
+- SOLID principles
+- Clean Code practices
+- Separation of concerns
+- Dependency Injection where applicable
+- Clear domain boundaries
+
+---
+
+### 7.2 Code Quality
+
+- Strong typing (TypeScript)
+- Avoid duplication
+- Small, focused functions
+- Meaningful naming (English only)
+- No business logic inside controllers
+- Validation layer (Zod or equivalent)
+
+---
+
+### 7.3 Environment Variables
+
+Required:
+- `JWT_SECRET`
+- `DATABASE_URL`
+- `GEMINI_API_KEY` (optional)
+
+Must include:
+- `.env.example`
+- Runtime validation
+
+---
+
+### 7.4 Error Prevention
+
+The system must avoid:
+
+- Duplicate exports (TypeScript)
+- Missing Node typings (`@types/node`)
+- Unsafe use of `process.env`
+- Improper Express params typing
+- Inconsistent database states
+- Broken waitlist ordering
+- Incorrect seed data
+
+---
+
+## 8. Database (Suggested Entities)
+
+- `users`
+- `books`
+- `loans`
+- `reservations`
+- `waitlist`
+- `roles`
+- `notes` (optional)
+
+---
+
+## 9. UI Structure
+
+### Admin
+- Dashboard
+- Books
+- Users
+- Loans
+- Reservations
+- Waitlist
+- Reports
+
+### Reader
+- Dashboard
+- Catalog
+- Book Details
+- My Loans
+- My Reservations
+- My Waitlist
+
+---
+
+## 10. Development Guidelines
+
+The implementation must:
+
+- Follow Clean Architecture (recommended)
+- Keep domain logic isolated
+- Use consistent English naming
+- Avoid tight coupling
+- Be scalable and maintainable
+
+---
+
+## 11. Future Enhancements
+
+- Automatic notifications
+- Multi-copy book support
+- Mobile app
+- QR Code check-in/out
+- Fine/penalty system
+- AI-based recommendations
+
+---
+
+## 12. Key Principle
+
+> Prioritize consistency, clarity, and maintainability over speed of implementation.
