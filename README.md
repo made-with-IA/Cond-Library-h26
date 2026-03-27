@@ -218,8 +218,12 @@ NODE_ENV=development
 Crie o arquivo `artifacts/biblioteca/.env`:
 
 ```env
+PORT=3000
+BASE_PATH=/
 VITE_API_URL=http://localhost:8080
 ```
+
+> **Variáveis obrigatórias do frontend:** `PORT` define a porta do servidor Vite; `BASE_PATH` define o prefixo de rota da aplicação (use `/` para desenvolvimento local). Ambas são exigidas pelo `vite.config.ts`.
 
 Para usar a busca com Gemini AI, configure também:
 
