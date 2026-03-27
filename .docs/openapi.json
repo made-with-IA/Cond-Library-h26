@@ -1,0 +1,300 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Library Management API",
+    "description": "API for managing a condominium library system with books, users, loans, reservations, and waitlists.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    { "name": "Auth" },
+    { "name": "Books" },
+    { "name": "Users" },
+    { "name": "Loans" },
+    { "name": "Reservations" },
+    { "name": "Reports" },
+    { "name": "Reader" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "whatsapp": { "type": "string" },
+          "role": { "type": "string", "enum": ["admin", "reader"] },
+          "status": { "type": "string", "enum": ["pending", "active", "inactive", "blocked"] }
+        }
+      },
+      "Book": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "author": { "type": "string" },
+          "genre": { "type": "string" },
+          "coverImage": { "type": "string" },
+          "description": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "available", "reserved", "borrowed", "missing", "lost"]
+          }
+        }
+      },
+      "Loan": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "bookId": { "type": "integer" },
+          "userId": { "type": "integer" },
+          "loanDate": { "type": "string", "format": "date-time" },
+          "dueDate": { "type": "string", "format": "date-time" },
+          "returnDate": { "type": "string", "format": "date-time", "nullable": true },
+          "status": {
+            "type": "string",
+            "enum": ["active", "returned", "overdue"]
+          }
+        }
+      },
+      "Reservation": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "bookId": { "type": "integer" },
+          "userId": { "type": "integer" },
+          "position": { "type": "integer" },
+          "status": {
+            "type": "string",
+            "enum": ["waiting", "notified", "cancelled", "fulfilled", "expired"]
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Authenticate user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "token": "jwt-token",
+                  "user": {
+                    "id": 1,
+                    "name": "John Doe",
+                    "role": "reader"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/books": {
+      "get": {
+        "tags": ["Books"],
+        "summary": "List books",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of books",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Book" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Books"],
+        "summary": "Create book",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Book" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created" }
+        }
+      }
+    },
+
+    "/books/{id}": {
+      "get": {
+        "tags": ["Books"],
+        "summary": "Get book by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Book details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Book" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/loans": {
+      "post": {
+        "tags": ["Loans"],
+        "summary": "Create loan",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "bookId": 1,
+                "userId": 2,
+                "dueDate": "2026-04-10T00:00:00Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Loan created" }
+        }
+      }
+    },
+
+    "/loans/{id}/return": {
+      "patch": {
+        "tags": ["Loans"],
+        "summary": "Return a book",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returned successfully" }
+        }
+      }
+    },
+
+    "/reservations": {
+      "post": {
+        "tags": ["Reservations"],
+        "summary": "Create reservation or join waitlist",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "bookId": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Reservation created" }
+        }
+      }
+    },
+
+    "/reservations/{id}/cancel": {
+      "patch": {
+        "tags": ["Reservations"],
+        "summary": "Cancel reservation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Cancelled" }
+        }
+      }
+    },
+
+    "/reports/loans/overdue": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Get overdue loans",
+        "responses": {
+          "200": {
+            "description": "Overdue list"
+          }
+        }
+      }
+    },
+
+    "/reader/me/loans": {
+      "get": {
+        "tags": ["Reader"],
+        "summary": "Get reader loans",
+        "responses": {
+          "200": {
+            "description": "Reader loans list"
+          }
+        }
+      }
+    }
+  }
+}
