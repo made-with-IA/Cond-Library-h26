@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { logger } from "../lib/logger.js";
+import { authMiddleware } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
-router.post("/gemini/book-search", async (req, res) => {
+router.post("/gemini/book-search", authMiddleware, async (req, res) => {
   const { query } = req.body as { query?: string };
   if (!query?.trim()) {
     res.status(400).json({ error: "query is required" });

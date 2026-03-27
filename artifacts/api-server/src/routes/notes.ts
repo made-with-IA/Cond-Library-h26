@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { libraryNotesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -22,13 +22,27 @@ interface UpdateNoteBody {
 
 const router: IRouter = Router();
 
-router.get("/notes", async (req, res) => {
+/**
+ * GET /notes — public endpoint returns only active notes.
+ * GET /notes?all=true — restricted to authenticated admins; returns all notes.
+ */
+router.get("/notes", async (req: Request, res: Response, next: NextFunction) => {
   const { all } = req.query as { all?: string };
-  const where = all === "true" ? undefined : eq(libraryNotesTable.active, true);
+  if (all === "true") {
+    // Require admin auth when requesting all (including inactive) notes
+    authMiddleware(req, res, async () => {
+      const notes = await db
+        .select()
+        .from(libraryNotesTable)
+        .orderBy(desc(libraryNotesTable.createdAt));
+      res.json({ notes });
+    });
+    return;
+  }
   const notes = await db
     .select()
     .from(libraryNotesTable)
-    .where(where)
+    .where(eq(libraryNotesTable.active, true))
     .orderBy(desc(libraryNotesTable.createdAt));
   res.json({ notes });
 });
