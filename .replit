@@ -28,4 +28,3 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-JWT_SECRET = "biblioteca-condominio-jwt-secret-2026-secure-key"
