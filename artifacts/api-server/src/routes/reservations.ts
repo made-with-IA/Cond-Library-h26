@@ -1,13 +1,60 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { reservationsTable, booksTable, usersTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, lt, sql } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/auth.js";
 
 type ReservationStatus = "waiting" | "notified" | "fulfilled" | "cancelled";
 type ReservationAction = "notify" | "cancel" | "fulfill" | "advance";
 
 const router: IRouter = Router();
+
+/**
+ * Lazy expiry: mark expired notified reservations as cancelled and promote
+ * the next waiting reader. Called before reads that need up-to-date queue state.
+ */
+async function enforceExpiredReservations(bookId?: number): Promise<void> {
+  const now = new Date();
+  const whereClause = bookId
+    ? and(eq(reservationsTable.status, "notified"), lt(reservationsTable.expiresAt, now), eq(reservationsTable.bookId, bookId))
+    : and(eq(reservationsTable.status, "notified"), lt(reservationsTable.expiresAt, now));
+
+  const expired = await db
+    .select()
+    .from(reservationsTable)
+    .where(whereClause);
+
+  for (const r of expired) {
+    await db
+      .update(reservationsTable)
+      .set({ status: "cancelled", updatedAt: now })
+      .where(eq(reservationsTable.id, r.id));
+
+    await normalizePositions(r.bookId, r.position);
+
+    const next = await db.query.reservationsTable.findFirst({
+      where: and(eq(reservationsTable.bookId, r.bookId), eq(reservationsTable.status, "waiting")),
+      orderBy: reservationsTable.position,
+    });
+
+    if (next) {
+      const notifiedAt = now;
+      const expiresAt = new Date(notifiedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      await db
+        .update(reservationsTable)
+        .set({ status: "notified", notifiedAt, expiresAt, updatedAt: now })
+        .where(eq(reservationsTable.id, next.id));
+    } else {
+      const book = await db.query.booksTable.findFirst({ where: eq(booksTable.id, r.bookId) });
+      if (book?.status === "reserved") {
+        await db
+          .update(booksTable)
+          .set({ status: "available", updatedAt: now })
+          .where(eq(booksTable.id, r.bookId));
+      }
+    }
+  }
+}
 
 function buildReservationWithJoins(
   r: typeof reservationsTable.$inferSelect,
@@ -51,6 +98,10 @@ async function normalizePositions(bookId: number, removedPosition: number) {
 
 router.get("/reservations", authMiddleware, async (req, res) => {
   const { bookId, userId, status } = req.query as Record<string, string>;
+
+  // Enforce expiry before returning queue state
+  await enforceExpiredReservations(bookId ? parseInt(bookId) : undefined);
+
   const conditions = [];
   if (bookId) conditions.push(eq(reservationsTable.bookId, parseInt(bookId)));
   if (userId) conditions.push(eq(reservationsTable.userId, parseInt(userId)));
@@ -185,18 +236,49 @@ router.patch("/reservations/:id", authMiddleware, async (req, res) => {
       .where(eq(reservationsTable.id, id))
       .returning();
     await normalizePositions(reservation.bookId, reservation.position);
-    const remaining = await db.query.reservationsTable.findFirst({
-      where: and(eq(reservationsTable.bookId, reservation.bookId), eq(reservationsTable.status, "waiting")),
-    });
-    const notifiedRemaining = await db.query.reservationsTable.findFirst({
-      where: and(eq(reservationsTable.bookId, reservation.bookId), eq(reservationsTable.status, "notified")),
-    });
-    if (!remaining && !notifiedRemaining) {
-      await db
-        .update(booksTable)
-        .set({ status: "available", updatedAt: new Date() })
-        .where(eq(booksTable.id, reservation.bookId));
+
+    if (reservation.status === "notified") {
+      // Promote next waiting reader, or release book if no one is waiting
+      const next = await db.query.reservationsTable.findFirst({
+        where: and(eq(reservationsTable.bookId, reservation.bookId), eq(reservationsTable.status, "waiting")),
+        orderBy: reservationsTable.position,
+      });
+      if (next) {
+        const notifiedAt = new Date();
+        const expiresAt = new Date(notifiedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+        await db
+          .update(reservationsTable)
+          .set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
+          .where(eq(reservationsTable.id, next.id));
+        // Book stays reserved for the new notified reader
+      } else {
+        await db
+          .update(booksTable)
+          .set({ status: "available", updatedAt: new Date() })
+          .where(eq(booksTable.id, reservation.bookId));
+      }
+    } else {
+      // Waiting reservation cancelled: check if there's still a notified or waiting entry
+      const hasActive = await db.query.reservationsTable.findFirst({
+        where: and(
+          eq(reservationsTable.bookId, reservation.bookId),
+          eq(reservationsTable.status, "notified"),
+        ),
+      });
+      const hasWaiting = await db.query.reservationsTable.findFirst({
+        where: and(
+          eq(reservationsTable.bookId, reservation.bookId),
+          eq(reservationsTable.status, "waiting"),
+        ),
+      });
+      if (!hasActive && !hasWaiting) {
+        await db
+          .update(booksTable)
+          .set({ status: "available", updatedAt: new Date() })
+          .where(eq(booksTable.id, reservation.bookId));
+      }
     }
+
     const freshBook = await db.query.booksTable.findFirst({ where: eq(booksTable.id, reservation.bookId) });
     res.json(buildReservationWithJoins(updated, freshBook, user));
 

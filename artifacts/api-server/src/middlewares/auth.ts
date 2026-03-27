@@ -4,10 +4,11 @@ import { db } from "@workspace/db";
 import { adminsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
+const _jwtRaw = process.env.JWT_SECRET;
+if (!_jwtRaw) {
   throw new Error("JWT_SECRET environment variable is required but was not provided.");
 }
+const JWT_SECRET: string = _jwtRaw;
 
 export interface AdminPayload {
   adminId: number;

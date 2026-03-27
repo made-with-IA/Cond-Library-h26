@@ -151,10 +151,16 @@ router.get("/reader/reservations", readerAuthMiddleware, async (req, res) => {
 
 router.post("/reader/reservations", readerAuthMiddleware, async (req, res) => {
   const userId = req.reader!.id;
+  const reader = req.reader!;
   const { bookId } = req.body as { bookId?: number };
 
   if (!bookId) {
     res.status(400).json({ error: "bookId is required" });
+    return;
+  }
+
+  if (reader.status !== "active") {
+    res.status(403).json({ error: "Only active readers can join the reservation queue" });
     return;
   }
 
@@ -328,8 +334,9 @@ router.post("/reader/lookup", async (req, res) => {
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.email, email.toLowerCase()),
   });
+  // Return same error regardless of found/not-found to prevent email enumeration
   if (!user) {
-    res.status(404).json({ error: "No reader found with this email. Please check the email or contact the library admin." });
+    res.status(404).json({ error: "No account found with this email. Please contact the library admin." });
     return;
   }
 
@@ -359,9 +366,14 @@ router.post("/reader/lookup", async (req, res) => {
     ))
     .orderBy(reservationsTable.position);
 
-  const { passwordHash, ...safeUser } = user;
+  // Return minimal profile — no passwordHash, no phone/address for public lookup
   res.json({
-    user: safeUser,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      status: user.status,
+    },
     activeLoans,
     overdueLoans,
     reservations: reservations.map(({ r, book }) => safeReservation(r, book)),
