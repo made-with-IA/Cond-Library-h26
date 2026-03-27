@@ -1,20 +1,52 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { reservationsTable, booksTable, usersTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/auth.js";
+
+type ReservationStatus = "waiting" | "notified" | "fulfilled" | "cancelled";
+type ReservationAction = "notify" | "cancel" | "fulfill" | "advance";
 
 const router: IRouter = Router();
 
-function buildReservationWithJoins(r: any, book: any, user: any) {
+function buildReservationWithJoins(
+  r: typeof reservationsTable.$inferSelect,
+  book: typeof booksTable.$inferSelect | null | undefined,
+  user: typeof usersTable.$inferSelect | null | undefined,
+) {
   return {
     ...r,
-    book: book ? { id: book.id, title: book.title, author: book.author, genre: book.genre,
-      isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status } : null,
-    user: user ? { id: user.id, name: user.name, email: user.email, phone: user.phone,
-      block: user.block, house: user.house, status: user.status,
-      createdAt: user.createdAt, updatedAt: user.updatedAt } : null,
+    book: book
+      ? {
+          id: book.id, title: book.title, author: book.author, genre: book.genre,
+          isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status,
+        }
+      : null,
+    user: user
+      ? {
+          id: user.id, name: user.name, email: user.email, phone: user.phone,
+          block: user.block, house: user.house, status: user.status,
+          createdAt: user.createdAt, updatedAt: user.updatedAt,
+        }
+      : null,
   };
+}
+
+async function normalizePositions(bookId: number, removedPosition: number) {
+  const remaining = await db
+    .select()
+    .from(reservationsTable)
+    .where(and(eq(reservationsTable.bookId, bookId), eq(reservationsTable.status, "waiting")))
+    .orderBy(reservationsTable.position);
+
+  for (const r of remaining) {
+    if (r.position > removedPosition) {
+      await db
+        .update(reservationsTable)
+        .set({ position: r.position - 1, updatedAt: new Date() })
+        .where(eq(reservationsTable.id, r.id));
+    }
+  }
 }
 
 router.get("/reservations", authMiddleware, async (req, res) => {
@@ -22,7 +54,7 @@ router.get("/reservations", authMiddleware, async (req, res) => {
   const conditions = [];
   if (bookId) conditions.push(eq(reservationsTable.bookId, parseInt(bookId)));
   if (userId) conditions.push(eq(reservationsTable.userId, parseInt(userId)));
-  if (status) conditions.push(eq(reservationsTable.status, status as any));
+  if (status) conditions.push(eq(reservationsTable.status, status as ReservationStatus));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -34,7 +66,9 @@ router.get("/reservations", authMiddleware, async (req, res) => {
     .where(where)
     .orderBy(reservationsTable.bookId, reservationsTable.position);
 
-  res.json({ reservations: rows.map(({ r, book, user }) => buildReservationWithJoins(r, book, user)) });
+  res.json({
+    reservations: rows.map(({ r, book, user }) => buildReservationWithJoins(r, book, user)),
+  });
 });
 
 router.post("/reservations", authMiddleware, async (req, res) => {
@@ -83,7 +117,10 @@ router.post("/reservations", authMiddleware, async (req, res) => {
     status = "notified";
     notifiedAt = new Date();
     expiresAt = new Date(notifiedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
-    await db.update(booksTable).set({ status: "reserved", updatedAt: new Date() }).where(eq(booksTable.id, bookId));
+    await db
+      .update(booksTable)
+      .set({ status: "reserved", updatedAt: new Date() })
+      .where(eq(booksTable.id, bookId));
   }
 
   const [reservation] = await db
@@ -97,7 +134,7 @@ router.post("/reservations", authMiddleware, async (req, res) => {
 
 router.patch("/reservations/:id", authMiddleware, async (req, res) => {
   const id = parseInt(String(req.params.id));
-  const { action } = req.body as { action?: string };
+  const { action } = req.body as { action?: ReservationAction };
 
   const result = await db
     .select({ r: reservationsTable, book: booksTable, user: usersTable })
@@ -134,7 +171,10 @@ router.patch("/reservations/:id", authMiddleware, async (req, res) => {
       .set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
       .where(eq(reservationsTable.id, id))
       .returning();
-    await db.update(booksTable).set({ status: "reserved", updatedAt: new Date() }).where(eq(booksTable.id, reservation.bookId));
+    await db
+      .update(booksTable)
+      .set({ status: "reserved", updatedAt: new Date() })
+      .where(eq(booksTable.id, reservation.bookId));
     const freshBook = await db.query.booksTable.findFirst({ where: eq(booksTable.id, reservation.bookId) });
     res.json(buildReservationWithJoins(updated, freshBook, user));
 
@@ -151,8 +191,11 @@ router.patch("/reservations/:id", authMiddleware, async (req, res) => {
     const notifiedRemaining = await db.query.reservationsTable.findFirst({
       where: and(eq(reservationsTable.bookId, reservation.bookId), eq(reservationsTable.status, "notified")),
     });
-    if (!remaining && !notifiedRemaining && book?.status === "reserved") {
-      await db.update(booksTable).set({ status: "available", updatedAt: new Date() }).where(eq(booksTable.id, reservation.bookId));
+    if (!remaining && !notifiedRemaining) {
+      await db
+        .update(booksTable)
+        .set({ status: "available", updatedAt: new Date() })
+        .where(eq(booksTable.id, reservation.bookId));
     }
     const freshBook = await db.query.booksTable.findFirst({ where: eq(booksTable.id, reservation.bookId) });
     res.json(buildReservationWithJoins(updated, freshBook, user));
@@ -171,10 +214,15 @@ router.patch("/reservations/:id", authMiddleware, async (req, res) => {
     if (next) {
       const notifiedAt = new Date();
       const expiresAt = new Date(notifiedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
-      await db.update(reservationsTable).set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
+      await db
+        .update(reservationsTable)
+        .set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
         .where(eq(reservationsTable.id, next.id));
     } else {
-      await db.update(booksTable).set({ status: "available", updatedAt: new Date() }).where(eq(booksTable.id, reservation.bookId));
+      await db
+        .update(booksTable)
+        .set({ status: "available", updatedAt: new Date() })
+        .where(eq(booksTable.id, reservation.bookId));
     }
     const freshBook = await db.query.booksTable.findFirst({ where: eq(booksTable.id, reservation.bookId) });
     res.json(buildReservationWithJoins(updated, freshBook, user));
@@ -197,10 +245,15 @@ router.patch("/reservations/:id", authMiddleware, async (req, res) => {
     if (next) {
       const notifiedAt = new Date();
       const expiresAt = new Date(notifiedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
-      await db.update(reservationsTable).set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
+      await db
+        .update(reservationsTable)
+        .set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
         .where(eq(reservationsTable.id, next.id));
     } else {
-      await db.update(booksTable).set({ status: "available", updatedAt: new Date() }).where(eq(booksTable.id, reservation.bookId));
+      await db
+        .update(booksTable)
+        .set({ status: "available", updatedAt: new Date() })
+        .where(eq(booksTable.id, reservation.bookId));
     }
     const freshBook = await db.query.booksTable.findFirst({ where: eq(booksTable.id, reservation.bookId) });
     res.json(buildReservationWithJoins(updated, freshBook, user));
@@ -212,7 +265,9 @@ router.patch("/reservations/:id", authMiddleware, async (req, res) => {
 
 router.delete("/reservations/:id", authMiddleware, async (req, res) => {
   const id = parseInt(String(req.params.id));
-  const reservation = await db.query.reservationsTable.findFirst({ where: eq(reservationsTable.id, id) });
+  const reservation = await db.query.reservationsTable.findFirst({
+    where: eq(reservationsTable.id, id),
+  });
   if (!reservation) {
     res.status(404).json({ error: "Reservation not found" });
     return;
@@ -239,22 +294,5 @@ router.patch("/reservations/:id/notify", authMiddleware, async (req, res) => {
   ]);
   res.json(buildReservationWithJoins(updated, book, user));
 });
-
-async function normalizePositions(bookId: number, removedPosition: number) {
-  const remaining = await db
-    .select()
-    .from(reservationsTable)
-    .where(and(eq(reservationsTable.bookId, bookId), eq(reservationsTable.status, "waiting")))
-    .orderBy(reservationsTable.position);
-
-  for (const r of remaining) {
-    if (r.position > removedPosition) {
-      await db
-        .update(reservationsTable)
-        .set({ position: r.position - 1, updatedAt: new Date() })
-        .where(eq(reservationsTable.id, r.id));
-    }
-  }
-}
 
 export default router;

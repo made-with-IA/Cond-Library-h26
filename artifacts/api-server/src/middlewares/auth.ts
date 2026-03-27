@@ -4,7 +4,10 @@ import { db } from "@workspace/db";
 import { adminsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required but was not provided.");
+}
 
 export interface AdminPayload {
   adminId: number;

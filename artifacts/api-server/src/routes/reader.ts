@@ -15,24 +15,51 @@ async function autoMarkOverdue() {
     .where(and(eq(loansTable.status, "active"), lt(loansTable.dueDate, now)));
 }
 
-function safeLoan(loan: any, book: any) {
+function safeLoan(
+  loan: typeof loansTable.$inferSelect,
+  book: typeof booksTable.$inferSelect | null | undefined,
+) {
   return {
     ...loan,
-    book: book ? {
-      id: book.id, title: book.title, author: book.author, genre: book.genre,
-      isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status,
-    } : null,
+    book: book
+      ? {
+          id: book.id, title: book.title, author: book.author, genre: book.genre,
+          isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status,
+        }
+      : null,
   };
 }
 
-function safeReservation(r: any, book: any) {
+function safeReservation(
+  r: typeof reservationsTable.$inferSelect,
+  book: typeof booksTable.$inferSelect | null | undefined,
+) {
   return {
     ...r,
-    book: book ? {
-      id: book.id, title: book.title, author: book.author, genre: book.genre,
-      isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status,
-    } : null,
+    book: book
+      ? {
+          id: book.id, title: book.title, author: book.author, genre: book.genre,
+          isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status,
+        }
+      : null,
   };
+}
+
+async function normalizeQueuePositions(bookId: number, removedPosition: number) {
+  const remaining = await db
+    .select()
+    .from(reservationsTable)
+    .where(and(eq(reservationsTable.bookId, bookId), eq(reservationsTable.status, "waiting")))
+    .orderBy(reservationsTable.position);
+
+  for (const r of remaining) {
+    if (r.position > removedPosition) {
+      await db
+        .update(reservationsTable)
+        .set({ position: r.position - 1, updatedAt: new Date() })
+        .where(eq(reservationsTable.id, r.id));
+    }
+  }
 }
 
 router.post("/reader/auth/login", async (req, res) => {
@@ -59,7 +86,7 @@ router.post("/reader/auth/login", async (req, res) => {
 });
 
 router.get("/reader/auth/me", readerAuthMiddleware, (req, res) => {
-  const { passwordHash, ...safeUser } = req.reader as any;
+  const { passwordHash, ...safeUser } = req.reader as typeof usersTable.$inferSelect;
   res.json(safeUser);
 });
 
@@ -73,8 +100,7 @@ router.get("/reader/dashboard", readerAuthMiddleware, async (req, res) => {
     db.select({ count: sql<number>`count(*)` }).from(loansTable)
       .where(and(eq(loansTable.userId, userId), eq(loansTable.status, "overdue"))),
     db.select({ count: sql<number>`count(*)` }).from(reservationsTable)
-      .where(and(eq(reservationsTable.userId, userId),
-        and(eq(reservationsTable.status, "waiting")))),
+      .where(and(eq(reservationsTable.userId, userId), eq(reservationsTable.status, "waiting"))),
     db.select({ count: sql<number>`count(*)` }).from(loansTable)
       .where(eq(loansTable.userId, userId)),
   ]);
@@ -197,17 +223,59 @@ router.delete("/reader/reservations/:id", readerAuthMiddleware, async (req, res)
     return;
   }
 
-  await db.update(reservationsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(reservationsTable.id, id));
+  await db
+    .update(reservationsTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(reservationsTable.id, id));
 
-  const remaining = await db.query.reservationsTable.findFirst({
-    where: and(eq(reservationsTable.bookId, reservation.bookId), eq(reservationsTable.status, "waiting")),
-  });
-  const notifiedRemaining = await db.query.reservationsTable.findFirst({
-    where: and(eq(reservationsTable.bookId, reservation.bookId), eq(reservationsTable.status, "notified")),
-  });
+  // Normalize FIFO positions for remaining waiting entries
+  await normalizeQueuePositions(reservation.bookId, reservation.position);
 
-  if (!remaining && !notifiedRemaining) {
-    await db.update(booksTable).set({ status: "available", updatedAt: new Date() }).where(eq(booksTable.id, reservation.bookId));
+  // If the cancelled reservation was notified, promote the next waiting reader
+  if (reservation.status === "notified") {
+    const next = await db.query.reservationsTable.findFirst({
+      where: and(
+        eq(reservationsTable.bookId, reservation.bookId),
+        eq(reservationsTable.status, "waiting"),
+      ),
+      orderBy: reservationsTable.position,
+    });
+
+    if (next) {
+      const notifiedAt = new Date();
+      const expiresAt = new Date(notifiedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      await db
+        .update(reservationsTable)
+        .set({ status: "notified", notifiedAt, expiresAt, updatedAt: new Date() })
+        .where(eq(reservationsTable.id, next.id));
+      // Book stays reserved for the next person
+    } else {
+      // No more waiters — release the book
+      await db
+        .update(booksTable)
+        .set({ status: "available", updatedAt: new Date() })
+        .where(eq(booksTable.id, reservation.bookId));
+    }
+  } else {
+    // Waiting reservation cancelled: check if queue is now fully empty
+    const notifiedRemaining = await db.query.reservationsTable.findFirst({
+      where: and(
+        eq(reservationsTable.bookId, reservation.bookId),
+        eq(reservationsTable.status, "notified"),
+      ),
+    });
+    const waitingRemaining = await db.query.reservationsTable.findFirst({
+      where: and(
+        eq(reservationsTable.bookId, reservation.bookId),
+        eq(reservationsTable.status, "waiting"),
+      ),
+    });
+    if (!notifiedRemaining && !waitingRemaining) {
+      await db
+        .update(booksTable)
+        .set({ status: "available", updatedAt: new Date() })
+        .where(eq(booksTable.id, reservation.bookId));
+    }
   }
 
   res.json({ message: "Reservation cancelled" });
@@ -215,9 +283,19 @@ router.delete("/reader/reservations/:id", readerAuthMiddleware, async (req, res)
 
 router.patch("/reader/profile", readerAuthMiddleware, async (req, res) => {
   const userId = req.reader!.id;
-  const { phone, password, currentPassword } = req.body as any;
+  const { phone, password, currentPassword } = req.body as {
+    phone?: string | null;
+    password?: string | null;
+    currentPassword?: string | null;
+  };
 
-  const updates: Record<string, any> = { updatedAt: new Date() };
+  type UserUpdate = {
+    phone?: string | null;
+    passwordHash?: string;
+    updatedAt: Date;
+  };
+
+  const updates: UserUpdate = { updatedAt: new Date() };
 
   if (phone !== undefined) updates.phone = phone;
 
@@ -266,10 +344,10 @@ router.post("/reader/lookup", async (req, res) => {
 
   const activeLoans = allLoans
     .filter(({ loan }) => loan.status === "active")
-    .map(({ loan, book }) => ({ ...loan, book }));
+    .map(({ loan, book }) => safeLoan(loan, book));
   const overdueLoans = allLoans
     .filter(({ loan }) => loan.status === "overdue")
-    .map(({ loan, book }) => ({ ...loan, book }));
+    .map(({ loan, book }) => safeLoan(loan, book));
 
   const reservations = await db
     .select({ r: reservationsTable, book: booksTable })
@@ -286,7 +364,7 @@ router.post("/reader/lookup", async (req, res) => {
     user: safeUser,
     activeLoans,
     overdueLoans,
-    reservations: reservations.map(({ r, book }) => ({ ...r, book })),
+    reservations: reservations.map(({ r, book }) => safeReservation(r, book)),
   });
 });
 

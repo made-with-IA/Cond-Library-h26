@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { loansTable, booksTable, usersTable, reservationsTable } from "@workspace/db";
-import { eq, and, lt, lte, gte, between, desc, sql, inArray, or } from "drizzle-orm";
+import { eq, and, lt, lte, gte, desc, sql, or } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
@@ -14,16 +14,31 @@ async function autoMarkOverdue() {
     .where(and(eq(loansTable.status, "active"), lt(loansTable.dueDate, now)));
 }
 
-function buildLoanWithJoins(loan: any, book: any, user: any) {
+function buildLoanWithJoins(
+  loan: typeof loansTable.$inferSelect,
+  book: typeof booksTable.$inferSelect | null | undefined,
+  user: typeof usersTable.$inferSelect | null | undefined,
+) {
   return {
     ...loan,
-    book: book ? { id: book.id, title: book.title, author: book.author, genre: book.genre,
-      isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status } : null,
-    user: user ? { id: user.id, name: user.name, email: user.email, phone: user.phone,
-      block: user.block, house: user.house, status: user.status,
-      createdAt: user.createdAt, updatedAt: user.updatedAt } : null,
+    book: book
+      ? {
+          id: book.id, title: book.title, author: book.author, genre: book.genre,
+          isbn: book.isbn, publishedYear: book.publishedYear, imageUrl: book.imageUrl, status: book.status,
+        }
+      : null,
+    user: user
+      ? {
+          id: user.id, name: user.name, email: user.email, phone: user.phone,
+          block: user.block, house: user.house, status: user.status,
+          createdAt: user.createdAt, updatedAt: user.updatedAt,
+        }
+      : null,
   };
 }
+
+type LoanStatus = "active" | "returned" | "overdue";
+type ReportStatus = "upcoming" | "due_today" | "overdue" | "returned";
 
 router.get("/loans", authMiddleware, async (req, res) => {
   const { status, userId, bookId, dueSoon, dueDateFrom, dueDateTo, reportStatus, page = "1", limit = "20" } =
@@ -37,7 +52,7 @@ router.get("/loans", authMiddleware, async (req, res) => {
   const now = new Date();
 
   const conditions = [];
-  if (status) conditions.push(eq(loansTable.status, status as any));
+  if (status) conditions.push(eq(loansTable.status, status as LoanStatus));
   if (userId) conditions.push(eq(loansTable.userId, parseInt(userId)));
   if (bookId) conditions.push(eq(loansTable.bookId, parseInt(bookId)));
   if (dueSoon === "true") {
@@ -53,23 +68,26 @@ router.get("/loans", authMiddleware, async (req, res) => {
   if (dueDateFrom) conditions.push(gte(loansTable.dueDate, new Date(dueDateFrom)));
   if (dueDateTo) conditions.push(lte(loansTable.dueDate, new Date(dueDateTo)));
   if (reportStatus) {
-    const threeDays = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-    if (reportStatus === "upcoming") {
-      conditions.push(and(
-        or(eq(loansTable.status, "active"), eq(loansTable.status, "overdue"))!,
-        gte(loansTable.dueDate, now),
-      )!);
-    } else if (reportStatus === "due_today") {
+    const rs = reportStatus as ReportStatus;
+    if (rs === "upcoming") {
+      conditions.push(
+        and(or(eq(loansTable.status, "active"), eq(loansTable.status, "overdue"))!, gte(loansTable.dueDate, now))!,
+      );
+    } else if (rs === "due_today") {
       const endOfDay = new Date(now);
       endOfDay.setHours(23, 59, 59, 999);
-      conditions.push(and(
-        or(eq(loansTable.status, "active"), eq(loansTable.status, "overdue"))!,
-        gte(loansTable.dueDate, new Date(now.toDateString())),
-        lte(loansTable.dueDate, endOfDay),
-      )!);
-    } else if (reportStatus === "overdue") {
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      conditions.push(
+        and(
+          or(eq(loansTable.status, "active"), eq(loansTable.status, "overdue"))!,
+          gte(loansTable.dueDate, startOfDay),
+          lte(loansTable.dueDate, endOfDay),
+        )!,
+      );
+    } else if (rs === "overdue") {
       conditions.push(eq(loansTable.status, "overdue"));
-    } else if (reportStatus === "returned") {
+    } else if (rs === "returned") {
       conditions.push(eq(loansTable.status, "returned"));
     }
   }
@@ -77,11 +95,8 @@ router.get("/loans", authMiddleware, async (req, res) => {
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [loansRaw, countResult] = await Promise.all([
-    db.select({
-      loan: loansTable,
-      book: booksTable,
-      user: usersTable,
-    })
+    db
+      .select({ loan: loansTable, book: booksTable, user: usersTable })
       .from(loansTable)
       .leftJoin(booksTable, eq(loansTable.bookId, booksTable.id))
       .leftJoin(usersTable, eq(loansTable.userId, usersTable.id))
@@ -102,7 +117,12 @@ router.get("/loans", authMiddleware, async (req, res) => {
 });
 
 router.post("/loans", authMiddleware, async (req, res) => {
-  const { bookId, userId, dueDate } = req.body as { bookId?: number; userId?: number; dueDate?: string };
+  const { bookId, userId, dueDate } = req.body as {
+    bookId?: number;
+    userId?: number;
+    dueDate?: string;
+  };
+
   if (!bookId || !userId) {
     res.status(400).json({ error: "bookId and userId are required" });
     return;
@@ -140,7 +160,7 @@ router.post("/loans", authMiddleware, async (req, res) => {
         where: eq(usersTable.id, notifiedReservation.userId),
       });
       res.status(400).json({
-        error: `This book is reserved for ${reservedUser?.name}. Only ${reservedUser?.name} can borrow this book.`,
+        error: `This book is reserved for ${reservedUser?.name}. Only that reader can borrow this book now.`,
       });
       return;
     }
@@ -157,6 +177,7 @@ router.post("/loans", authMiddleware, async (req, res) => {
 
   await db.update(booksTable).set({ status: "borrowed", updatedAt: new Date() }).where(eq(booksTable.id, bookId));
 
+  // Fulfill the notified reservation if this loan came from one
   if (book.status === "reserved") {
     const notifiedReservation = await db.query.reservationsTable.findFirst({
       where: and(
@@ -192,7 +213,7 @@ router.get("/loans/:id", authMiddleware, async (req, res) => {
     return;
   }
   const { loan, book, user } = result[0];
-  res.json(buildLoanWithJoins({ ...loan, createdAt: loan.createdAt }, book, user));
+  res.json(buildLoanWithJoins(loan, book, user));
 });
 
 router.patch("/loans/:id/return", authMiddleware, async (req, res) => {
@@ -236,28 +257,22 @@ router.patch("/loans/:id/return", authMiddleware, async (req, res) => {
       .where(eq(booksTable.id, loan.bookId));
   }
 
-  const [book, user] = await Promise.all([
+  const [freshBook, freshUser] = await Promise.all([
     db.query.booksTable.findFirst({ where: eq(booksTable.id, updated.bookId) }),
     db.query.usersTable.findFirst({ where: eq(usersTable.id, updated.userId) }),
   ]);
 
-  res.json(buildLoanWithJoins({ ...updated, createdAt: updated.createdAt }, book, user));
+  res.json(buildLoanWithJoins(updated, freshBook, freshUser));
 });
 
 async function normalizeQueuePositions(bookId: number, removedPosition: number) {
   const remaining = await db
     .select()
     .from(reservationsTable)
-    .where(
-      and(
-        eq(reservationsTable.bookId, bookId),
-        eq(reservationsTable.status, "waiting"),
-      ),
-    )
+    .where(and(eq(reservationsTable.bookId, bookId), eq(reservationsTable.status, "waiting")))
     .orderBy(reservationsTable.position);
 
-  for (let i = 0; i < remaining.length; i++) {
-    const r = remaining[i];
+  for (const r of remaining) {
     if (r.position > removedPosition) {
       await db
         .update(reservationsTable)

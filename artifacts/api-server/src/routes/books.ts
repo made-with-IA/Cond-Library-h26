@@ -1,8 +1,32 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { booksTable, loansTable, reservationsTable, usersTable } from "@workspace/db";
-import { eq, like, sql, and, desc, or, ilike } from "drizzle-orm";
+import { eq, sql, and, desc, or, ilike } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/auth.js";
+
+type BookStatus = "draft" | "available" | "borrowed" | "reserved" | "lost" | "unavailable";
+
+interface CreateBookBody {
+  title?: string;
+  author?: string;
+  genre?: string;
+  isbn?: string | null;
+  publishedYear?: number | null;
+  imageUrl?: string | null;
+  description?: string | null;
+  status?: BookStatus;
+}
+
+interface UpdateBookBody {
+  title?: string;
+  author?: string;
+  genre?: string;
+  isbn?: string | null;
+  publishedYear?: number | null;
+  imageUrl?: string | null;
+  description?: string | null;
+  status?: BookStatus;
+}
 
 const router: IRouter = Router();
 
@@ -21,7 +45,7 @@ router.get("/books", async (req, res) => {
       )!,
     );
   }
-  if (status) conditions.push(eq(booksTable.status, status as any));
+  if (status) conditions.push(eq(booksTable.status, status as BookStatus));
   if (genre) conditions.push(ilike(booksTable.genre, `%${genre}%`));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -50,7 +74,9 @@ router.get("/books", async (req, res) => {
 });
 
 router.post("/books", authMiddleware, async (req, res) => {
-  const { title, author, genre, isbn, publishedYear, imageUrl, description, status } = req.body as any;
+  const { title, author, genre, isbn, publishedYear, imageUrl, description, status } =
+    req.body as CreateBookBody;
+
   if (!title || !author || !genre) {
     res.status(400).json({ error: "Title, author, and genre are required" });
     return;
@@ -75,9 +101,11 @@ router.get("/books/:id", async (req, res) => {
       id: loansTable.id, bookId: loansTable.bookId, userId: loansTable.userId,
       status: loansTable.status, loanDate: loansTable.loanDate, dueDate: loansTable.dueDate,
       returnDate: loansTable.returnDate, createdAt: loansTable.createdAt,
-      user: { id: usersTable.id, name: usersTable.name, email: usersTable.email,
-               phone: usersTable.phone, block: usersTable.block, house: usersTable.house,
-               status: usersTable.status, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt },
+      user: {
+        id: usersTable.id, name: usersTable.name, email: usersTable.email,
+        phone: usersTable.phone, block: usersTable.block, house: usersTable.house,
+        status: usersTable.status, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
+      },
     })
     .from(loansTable)
     .leftJoin(usersTable, eq(loansTable.userId, usersTable.id))
@@ -90,9 +118,11 @@ router.get("/books/:id", async (req, res) => {
       position: reservationsTable.position, status: reservationsTable.status,
       notifiedAt: reservationsTable.notifiedAt, expiresAt: reservationsTable.expiresAt,
       createdAt: reservationsTable.createdAt, updatedAt: reservationsTable.updatedAt,
-      user: { id: usersTable.id, name: usersTable.name, email: usersTable.email,
-               phone: usersTable.phone, block: usersTable.block, house: usersTable.house,
-               status: usersTable.status, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt },
+      user: {
+        id: usersTable.id, name: usersTable.name, email: usersTable.email,
+        phone: usersTable.phone, block: usersTable.block, house: usersTable.house,
+        status: usersTable.status, createdAt: usersTable.createdAt, updatedAt: usersTable.updatedAt,
+      },
     })
     .from(reservationsTable)
     .leftJoin(usersTable, eq(reservationsTable.userId, usersTable.id))
@@ -109,7 +139,9 @@ router.patch("/books/:id", authMiddleware, async (req, res) => {
     res.status(404).json({ error: "Book not found" });
     return;
   }
-  const { title, author, genre, isbn, publishedYear, imageUrl, description, status } = req.body as any;
+  const { title, author, genre, isbn, publishedYear, imageUrl, description, status } =
+    req.body as UpdateBookBody;
+
   const [updated] = await db
     .update(booksTable)
     .set({
@@ -135,7 +167,9 @@ router.delete("/books/:id", authMiddleware, async (req, res) => {
     .from(loansTable)
     .where(eq(loansTable.bookId, id));
   if (Number(loanCount[0]?.count) > 0) {
-    res.status(409).json({ error: "Cannot delete book with loan history. Set status to 'unavailable' instead." });
+    res.status(409).json({
+      error: "Cannot delete book with loan history. Set status to 'unavailable' instead.",
+    });
     return;
   }
   await db.delete(reservationsTable).where(eq(reservationsTable.bookId, id));
