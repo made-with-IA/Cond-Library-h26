@@ -114,48 +114,76 @@ biblioteca-condominio/
 
 ---
 
-## Principais Endpoints da API
+## Endpoints da API
 
 ```
-GET    /api/healthz                    Verificação de saúde
-POST   /api/auth/login                 Login do administrador
-GET    /api/auth/me                    Admin autenticado
+# Saúde
+GET    /api/healthz                      Verificação de saúde da API
 
-GET    /api/books                      Listar livros (search, status, genre, page)
-POST   /api/books                      Criar livro
-GET    /api/books/:id                  Detalhes + histórico
-PATCH  /api/books/:id                  Atualizar livro
-DELETE /api/books/:id                  Remover livro
+# Autenticação de administrador
+POST   /api/auth/login                   Login do administrador
+POST   /api/auth/logout                  Logout (invalida sessão no cliente)
+GET    /api/auth/me                      Dados do admin autenticado
 
-GET    /api/users                      Listar leitores
-POST   /api/users                      Cadastrar leitor
-GET    /api/users/:id                  Perfil + histórico
-PATCH  /api/users/:id                  Atualizar leitor
-DELETE /api/users/:id                  Remover leitor
+# Administradores
+GET    /api/admins                       Listar admins
+POST   /api/admins                       Criar admin
+DELETE /api/admins/:id                   Remover admin
 
-GET    /api/loans                      Listar empréstimos (status, dueSoon, dueDateFrom, dueDateTo)
-POST   /api/loans                      Registrar empréstimo
-GET    /api/loans/:id                  Detalhes do empréstimo
-PATCH  /api/loans/:id/return           Devolver livro
+# Livros
+GET    /api/books                        Listar livros (search, status, genre, page, limit)
+POST   /api/books                        Criar livro
+GET    /api/books/:id                    Detalhes + histórico de empréstimos e reservas
+PATCH  /api/books/:id                    Atualizar livro
+DELETE /api/books/:id                    Remover livro (proibido se há histórico de empréstimo)
 
-GET    /api/reservations               Listar fila
-POST   /api/reservations               Adicionar à fila
-PATCH  /api/reservations/:id           Ações: notify / cancel / fulfill / advance
-DELETE /api/reservations/:id           Remover da fila
-PATCH  /api/reservations/:id/notify    Registrar notificação WhatsApp
+# Leitores (admin)
+GET    /api/users                        Listar leitores (search, status, page, limit)
+POST   /api/users                        Cadastrar leitor
+GET    /api/users/:id                    Perfil + histórico de empréstimos
+PATCH  /api/users/:id                    Atualizar leitor
+DELETE /api/users/:id                    Remover leitor
 
-POST   /api/reader/lookup              Consulta pública por e-mail (sem login)
-POST   /api/reader/auth/login          Login do leitor
-GET    /api/reader/auth/me             Leitor autenticado
-GET    /api/reader/loans               Empréstimos do leitor logado
-GET    /api/reader/reservations        Reservas do leitor logado
-POST   /api/reader/reservations        Reservar livro
-DELETE /api/reader/reservations/:id    Cancelar reserva
-GET    /api/reader/dashboard           Painel do leitor
+# Empréstimos (admin)
+GET    /api/loans                        Listar empréstimos (status, userId, bookId, dueSoon, dueDateFrom, dueDateTo)
+POST   /api/loans                        Registrar empréstimo
+GET    /api/loans/:id                    Detalhes do empréstimo
+PATCH  /api/loans/:id/return             Devolver livro
 
-GET    /api/dashboard                  Métricas do painel admin
-GET    /api/notes                      Comunicados (ativos; ?all=true requer auth admin)
-POST   /api/gemini/book-search         Busca dados do livro com Gemini AI (requer auth admin)
+# Fila de reservas (admin)
+GET    /api/reservations                 Listar reservas (bookId, userId, status)
+POST   /api/reservations                 Adicionar leitor à fila
+PATCH  /api/reservations/:id             Ações: notify / cancel / fulfill / advance
+DELETE /api/reservations/:id             Remover da fila
+PATCH  /api/reservations/:id/notify      Registrar notificação WhatsApp (atualiza notifiedAt)
+
+# Dashboard administrativo
+GET    /api/dashboard                    Métricas em tempo real (livros, empréstimos, leitores)
+
+# Comunicados
+GET    /api/notes                        Listar comunicados ativos (público)
+GET    /api/notes?all=true               Listar todos os comunicados (requer auth admin)
+POST   /api/notes                        Criar comunicado (requer auth admin)
+PATCH  /api/notes/:id                    Atualizar comunicado (requer auth admin)
+DELETE /api/notes/:id                    Remover comunicado (requer auth admin)
+
+# IA — Gemini (requer auth admin)
+POST   /api/gemini/book-search           Busca dados do livro por título ou ISBN
+
+# Portal do leitor — Autenticação
+POST   /api/reader/auth/login            Login do leitor
+GET    /api/reader/auth/me               Dados do leitor autenticado
+
+# Portal do leitor — Consulta pública
+POST   /api/reader/lookup                Consulta por e-mail sem login (retorna empréstimos e reservas)
+
+# Portal do leitor — Área autenticada
+GET    /api/reader/dashboard             Resumo do painel do leitor
+GET    /api/reader/loans                 Empréstimos ativos e histórico do leitor logado
+GET    /api/reader/reservations          Reservas do leitor logado
+POST   /api/reader/reservations          Reservar livro (apenas leitores ativos)
+DELETE /api/reader/reservations/:id      Cancelar reserva
+PATCH  /api/reader/profile               Atualizar telefone e/ou senha
 ```
 
 ---
@@ -164,7 +192,7 @@ POST   /api/gemini/book-search         Busca dados do livro com Gemini AI (reque
 
 ### Pré-requisitos
 
-- Node.js 20 ou superior
+- Node.js 24 ou superior
 - pnpm 9 ou superior — instalar com: `npm install -g pnpm`
 - PostgreSQL em execução local (ou URL de conexão remota)
 
