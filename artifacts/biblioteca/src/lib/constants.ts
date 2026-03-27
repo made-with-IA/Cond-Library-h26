@@ -1,8 +1,8 @@
 export const STRINGS = {
   app: {
-    name: "Biblioteca do Condomínio",
+    name: "Biblios",
     tagline: "Your community's shared knowledge.",
-    footer: "© 2025 Biblioteca do Condomínio. All rights reserved.",
+    footer: "© 2026 Biblios. All rights reserved.",
   },
   nav: {
     home: "Home",
