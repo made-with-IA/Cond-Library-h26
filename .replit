@@ -51,5 +51,10 @@ timeoutMs = 20000
 [userenv.shared]
 JWT_SECRET = "84fca821724133d45063e53437b3a23424d30785401810462733079f98616c4a08cefa90f9a74ae06fe09198b98b911937581d6048c86b042484e7ce3350df73"
 
+[userenv.production]
+INIT_ADMIN_EMAIL = "leo@leohmoraes.pro"
+INIT_ADMIN_PASSWORD = "admin@leo"
+INIT_ADMIN_NAME = "Leo Moraes"
+
 [nix]
 channel = "stable-25_05"
