@@ -10,9 +10,11 @@ import dashboardRouter from "./dashboard.js";
 import notesRouter from "./notes.js";
 import adminsRouter from "./admins.js";
 import geminiRouter from "./gemini.js";
+import setupRouter from "./setup.js";
 
 const router: IRouter = Router();
 
+router.use(setupRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(booksRouter);
