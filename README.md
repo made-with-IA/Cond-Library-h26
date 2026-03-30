@@ -6,6 +6,17 @@ A full-stack community library management system for condominiums. Administrator
 
 ---
 
+## 🌐 Live Demo
+
+Try the live application here: **https://0cf98f88-f963-471c-951d-239f2f11e3e0-00-36p2ih5v7gupn.riker.replit.dev/**
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@biblioteca.com` | `admin123` |
+| Reader | `carlos@email.com` | `reader123` |
+
+---
+
 ## Features
 
 ### Public Area (Residents)
@@ -312,7 +323,17 @@ pnpm --filter @workspace/db run push
 
 ---
 
+## ❤️ Support & Community
+
+This project is open source: [github.com/made-with-IA/Cond-Library-h26](https://github.com/made-with-IA/Cond-Library-h26)
+
+If you find this project helpful, consider supporting it:
+
+- 💻 **Replit** — Build and deploy your own apps: [Get started on Replit](https://replit.com/refer/agathafloripa20) *(referral link)*
+- 🎙️ **StreamYard** — Stream and record professional broadcasts: [Get $10 off StreamYard](https://streamyard.com/pal/d/6718893168066560) *(referral link)*
 ## License
+
+---
 
 MIT License
 
